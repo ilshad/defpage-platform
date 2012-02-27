@@ -1,11 +1,6 @@
-%% @author author <author@example.com>
-%% @copyright YYYY author.
-
 %% @doc Supervisor for the platform application.
 
 -module(platform_sup).
--author('author <author@example.com>').
-
 -behaviour(supervisor).
 
 %% External exports
@@ -15,7 +10,7 @@
 -export([init/1]).
 
 %% application config
--include("platform.hrl")
+-include("platform.hrl").
 
 %% @spec start_link() -> ServerRet
 %% @doc API for starting the supervisor.
