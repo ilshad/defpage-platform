@@ -1,6 +1,8 @@
 -module(rfc3339).
 
--export([parse/1]).
+-export([parse/1, epoch/1, parse_epoch/1]).
+
+-define(UNIX_EPOCH, calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}})).
 
 parse(TimestampString) ->
     parse_timestamp_rfc3339(TimestampString, 0, [], []).
@@ -95,3 +97,21 @@ parse_timestamp_rfc3339([C|Cs], N, A, R, time_offset_minute) when N < 2  ->
     parse_timestamp_rfc3339(Cs, N+1, [C|A], R, time_offset_minute);
 parse_timestamp_rfc3339([_C|_Cs], N, _A, _R, time_offset_minute) when N >= 2 ->
     {parse_error, "time_offset_minute contains too many digits"}.
+
+epoch(DateTime) ->
+    calendar:datetime_to_gregorian_seconds(DateTime) - ?UNIX_EPOCH.
+
+parse_epoch(TimestampString) ->
+    [{date_fullyear, DateFullYear},
+     {date_month, DateMonth},
+     {date_mday, DateMDay},
+     {time_hour, TimeHour},
+     {time_minute, TimeMinute},
+     {time_second, TimeSecond},
+     {time_secfrac, _}] = parse(TimestampString),
+    epoch({{list_to_integer(DateFullYear),
+	    list_to_integer(DateMonth),
+	    list_to_integer(DateMDay)},
+	   {list_to_integer(TimeHour),
+	    list_to_integer(TimeMinute),
+	    list_to_integer(TimeSecond)}}).

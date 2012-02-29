@@ -29,4 +29,4 @@ google_docs(CollectionId) ->
 json_to_document({struct, Fields}) ->
     #document{id = proplists:get_value("id", Fields),
 	      title = proplists:get_value("title", Fields),
-	      modified = rfc3339:parse(proplists:get_value("modified", Fields))}.
+	      modified = rfc3339:parse_epoch(proplists:get_value("modified", Fields))}.
