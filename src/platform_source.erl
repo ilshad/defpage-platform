@@ -10,29 +10,23 @@
 
 -spec(sync(Id::integer()) -> ok).
 
-%% @doc Run synchronization process. Argument is collection Id.
-sync(Id) -> Id.
+%% @doc Run sync process.
+sync(CollectionId) -> CollectionId.
 
--spec(google_docs(Id::integer()) -> [#document{}]).
+-spec(google_docs(CollectionId::integer()) -> [#document{}]).
 
 %% @doc Get google docs for given collection. Argument is collection Id.
-google_docs(Id) ->
-    Url = ?GD_URL ++ "/api/collection/" ++ integer_to_list(Id) ++ "/documents",
+google_docs(CollectionId) ->
+    Url = ?GD_URL ++ "/api/collection/" ++ integer_to_list(CollectionId) ++ "/documents",
     case httpc:request(Url) of
 	{ok, {{_, 200, _}, _, Body}} ->
 	    {array, Docs} = mochijson:decode(Body),
-	    source_documents(Docs);
+	    [json_to_document(X) || X <- Docs];
 	{ok, {{_, 404, _}, _, _}} -> error;
 	_ -> error
     end.
 
-source_documents(List) ->
-    source_documents(List, []).
-
-source_documents([], Acc) ->
-    Acc;
-source_documents([{struct, Fields} | Tail], Acc) ->
-    X = #document{id = proplists:get_value("id", Fields),
-		  title = proplists:get_value("title", Fields),
-		  modified = proplists:get_value("modified", Fields)},
-    source_documents(Tail, [X | Acc]).
+json_to_document({struct, Fields}) ->
+    #document{id = proplists:get_value("id", Fields),
+	      title = proplists:get_value("title", Fields),
+	      modified = rfc3339:parse(proplists:get_value("modified", Fields))}.

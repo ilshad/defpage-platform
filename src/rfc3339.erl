@@ -95,4 +95,3 @@ parse_timestamp_rfc3339([C|Cs], N, A, R, time_offset_minute) when N < 2  ->
     parse_timestamp_rfc3339(Cs, N+1, [C|A], R, time_offset_minute);
 parse_timestamp_rfc3339([_C|_Cs], N, _A, _R, time_offset_minute) when N >= 2 ->
     {parse_error, "time_offset_minute contains too many digits"}.
-
