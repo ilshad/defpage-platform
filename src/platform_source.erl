@@ -16,12 +16,14 @@
 		  }).
 
 -spec(sync(Id::integer()) -> tuple()).
+%% @doc Run sync process.
 sync(CollectionId) ->
     {SourceType, MetaDocs} = get_meta(CollectionId),
     SourceDocs = get_sources(SourceType, CollectionId),
     {MetaDocs, SourceDocs}.
 
 -spec(get_meta(CollectionId::integer()) -> {source_type(), [#document{}]}).
+%% Get metadata info.
 get_meta(CollectionId) ->
     Url = ?META_URL ++ "/collections/" ++ integer_to_list(CollectionId),
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
@@ -36,14 +38,16 @@ get_meta(CollectionId) ->
     end.
 
 -spec(source_type(Fields::[tuple()]) -> source_type()).
+%% Extract source type for collection. Assume alone.
 source_type(Fields) ->
-    {array, [{struct, Source} | _]} = proplists:get_value("sources", Fields), % assume alone
+    {array, [{struct, Source} | _]} = proplists:get_value("sources", Fields),
     case proplists:get_value("type", Source) of
 	"gd" -> gd;
 	_ -> error
     end.
 
 -spec(get_sources(source_type(), CollectionId::integer()) -> [#document{}]).
+%% Get list of info about source documents.
 get_sources(gd, CollectionId) ->
     Url = ?GD_URL ++ "/api/collection/" ++ integer_to_list(CollectionId) ++ "/documents",
     case httpc:request(Url) of
@@ -55,6 +59,8 @@ get_sources(gd, CollectionId) ->
 	_ ->
 	    error
     end.
+
+%% Make document record from structures given by mochijsin library.
 
 json_to_document(Fields) ->
     #document{id = proplists:get_value("id", Fields),
