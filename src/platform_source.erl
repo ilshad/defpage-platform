@@ -12,13 +12,11 @@
 -record(meta_doc, {id :: string(),
 		   title :: string(),
 		   modified :: string(),
-		   source :: [tuple()] % proplist
-		  }).
+		   source :: [tuple()]}). % proplist
 
 -record(source_doc, {id :: string(),
 		     title :: string(),
-		     modified :: string()
-		    }).
+		     modified :: string()}).
 
 -spec(sync(Id::integer()) -> tuple()).
 %% @doc Run sync process.
@@ -65,7 +63,7 @@ get_sources(gd, CollectionId) ->
 	    error
     end.
 
-%%%%%% Make document records from structures given by mochijsin library %%%%%%%%
+%%%%%% Make document records from structures given by mochijson library %%%%%%%%
 %%
 %%
 
