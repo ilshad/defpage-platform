@@ -22,10 +22,8 @@
 sync(CollectionId) ->
     {SourceType, MetaDocs} = get_meta(CollectionId),
     SourceDocs = get_sources(SourceType, CollectionId),
-    FunUpdate = get_fun_update(SourceType, CollectionId, MetaDocs),
-    lists:foreach(FunUpdate, SourceDocs),
+    lists:foreach(get_fun_update(SourceType, CollectionId, MetaDocs), SourceDocs),
     ok.
-    %{MetaDocs, SourceDocs}.
 
 -spec(get_meta(CollectionId::integer()) -> {source_type(), [#meta_doc{}]}).
 %% Get metadata info.
@@ -108,10 +106,7 @@ get_fun_update(SourceType, CollectionId, MetaDocs) ->
 			_ ->
 			    ok
 		    end;
-		#meta_doc{meta_id = _MMetaId,
-			  source_type = SourceType,
-			  title = MTitle,
-			  modified = _MModified} ->
+		{meta_doc, _MMetaId, _SourceType, MTitle, _MModified} ->
 		    io:format("QQQQQQQQQQQQQ -- ~p -- QQQQQQQQQQQ", [MTitle])
 	    end
     end.
