@@ -9,21 +9,20 @@
 
 -type(source_type() :: gd | undefined).
 
--record(meta_doc, {id :: string(),
+-record(meta_doc, {meta_id :: string(),
+		   source_type :: string(),
 		   title :: string(),
-		   modified :: string(),
-		   source :: [tuple()]}). % proplist
+		   modified :: string()}).
 
--record(source_doc, {id :: string(),
-		     title :: string(),
+-record(source_doc, {title :: string(),
 		     modified :: string()}).
 
--spec(sync(Id::integer()) -> tuple()).
+-spec(sync(Id::integer()) -> term()).
 %% @doc Run sync process.
 sync(CollectionId) ->
     {SourceType, MetaDocs} = get_meta(CollectionId),
     SourceDocs = get_sources(SourceType, CollectionId),
-    {MetaDocs, SourceDocs}.
+    ok.
 
 -spec(get_meta(CollectionId::integer()) -> {source_type(), [#meta_doc{}]}).
 %% Get metadata info.
@@ -63,20 +62,15 @@ get_sources(gd, CollectionId) ->
 	    error
     end.
 
-%%%%%% Make document records from structures given by mochijson library %%%%%%%%
-%%
-%%
-
 meta_doc({struct, Fields}) ->
-    #meta_doc{id = proplists:get_value("id", Fields),
-	      title = proplists:get_value("title", Fields),
-	      modified = rfc3339:parse_epoch(proplists:get_value("modified", Fields)),
-	      source = proplists:get_value("source", Fields)}.
+    {struct, Source} = proplists:get_value("source", Fields),
+    {proplists:get_value("id", Source),
+     #meta_doc{meta_id = proplists:get_value("id", Fields),
+	       source_type = proplists:get_value("type", Source),
+	       title = proplists:get_value("title", Fields),
+	       modified = rfc3339:parse_epoch(proplists:get_value("modified", Fields))}}.
 
 source_doc({struct, Fields}) ->
-    #meta_doc{id = proplists:get_value("id", Fields),
-	      title = proplists:get_value("title", Fields),
-	      modified = rfc3339:parse_epoch(proplists:get_value("modified", Fields))}.
-%%
-%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    {proplists:get_value("id", Fields),
+     #source_doc{title = proplists:get_value("title", Fields),
+		 modified = rfc3339:parse_epoch(proplists:get_value("modified", Fields))}}.
