@@ -2,3 +2,4 @@ ebin
 priv/log
 deps/*
 *.beam
+*.dump

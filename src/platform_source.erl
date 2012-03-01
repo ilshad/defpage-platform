@@ -22,8 +22,10 @@
 sync(CollectionId) ->
     {SourceType, MetaDocs} = get_meta(CollectionId),
     SourceDocs = get_sources(SourceType, CollectionId),
-    %lists:foreach(get_fun_update(MetaDocs), SourceDocs),
-    {MetaDocs, SourceDocs}.
+    FunUpdate = get_fun_update(SourceType, CollectionId, MetaDocs),
+    lists:foreach(FunUpdate, SourceDocs),
+    ok.
+    %{MetaDocs, SourceDocs}.
 
 -spec(get_meta(CollectionId::integer()) -> {source_type(), [#meta_doc{}]}).
 %% Get metadata info.
@@ -64,7 +66,7 @@ get_sources(gd, CollectionId) ->
 
 %% Create property with record #meta_doc{} from json structure
 meta_doc({struct, Fields}) ->
-    {struct, Source} = proplists:get_value(<<"source">>, Fields),
+    {struct, Source} = mochijson2:decode(proplists:get_value(<<"source">>, Fields)), % ?!!
     {proplists:get_value(<<"id">>, Source),
      #meta_doc{meta_id = proplists:get_value(<<"id">>, Fields),
 	       source_type = proplists:get_value(<<"type">>, Source),
@@ -81,12 +83,35 @@ source_doc({struct, Fields}) ->
 			      binary_to_list(
 				proplists:get_value(<<"modified">>, Fields)))}}.
 
-%-spec(get_fun_update(MetaDocs::list()) -> function(SourceDoc::tuple()) -> void()).
+-spec(get_fun_update(SourceType::atom(),
+		     CollectionId::integer(),
+		     MetaDocs::list()) -> function()).
 %% Return function which update meta docs if need, for given source document.
-%get_fun_update(MetaDocs) ->
-%    fun({SourceId, _SourceDoc}) ->
-%	    case proplists:get_value(SourceId, MetaDocs) of
-%		undefined ->
-%		    ok
-%	    end
-%    end.
+get_fun_update(SourceType, CollectionId, MetaDocs) ->
+    fun({SourceId, SourceDoc}) ->
+	    case proplists:get_value(SourceId, MetaDocs) of
+		undefined ->
+		    Source = {struct, [{<<"type">>, list_to_binary(atom_to_list(SourceType))},
+				       {<<"id">>, SourceId}]},
+		    Fields = {struct, [{<<"title">>, SourceDoc#source_doc.title},
+				       {<<"source">>, Source},
+				       {<<"collection_id">>, CollectionId}]},
+		    Request = {?META_URL ++ "/documents/",
+			       [?META_AUTH],
+			       "application/json",
+			       iolist_to_binary(mochijson2:encode(Fields))},
+		    case httpc:request(post, Request, [], []) of
+			{ok, {{_, 201, _}, _, Body}} ->
+			    {struct, ResponseFields} = mochijson2:decode(Body),
+			    _DocId = proplists:get_value(<<"id">>, ResponseFields),
+			    ok;
+			_ ->
+			    ok
+		    end;
+		#meta_doc{meta_id = _MMetaId,
+			  source_type = SourceType,
+			  title = MTitle,
+			  modified = _MModified} ->
+		    io:format("QQQQQQQQQQQQQ -- ~p -- QQQQQQQQQQQ", [MTitle])
+	    end
+    end.
