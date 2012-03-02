@@ -157,7 +157,7 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 	    end;
 
 	MetaModified < SourceDoc#source_doc.modified ->
-	    io:format("~n[~p] found modified content~n", [MetaId]),
+	    io:format("~n[~p] found modified content. Time in source:~p. Time in meta:~p.~n", [MetaId, SourceDoc#source_doc.modified, MetaModified]),
 	    Fields = {struct, [{<<"modified">>, SourceDoc#source_doc.modified}]},
 	    Request = {?META_URL ++ "/documents/" ++ integer_to_list(MetaId),
 		       [?META_AUTH],
