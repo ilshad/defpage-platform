@@ -12,10 +12,10 @@
 -record(meta_doc, {meta_id :: string(),
 		   source_type :: string(),
 		   title :: string(),
-		   modified :: string()}).
+		   modified :: integer()}).
 
 -record(source_doc, {title :: string(),
-		     modified :: string()}).
+		     modified :: integer()}).
 
 -spec(sync(Id::integer()) -> term()).
 %% @doc Run sync process.
@@ -119,7 +119,8 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 201, _}, _, Body}} ->
 	    {struct, ResponseFields} = mochijson2:decode(Body),
-	    _DocId = proplists:get_value(<<"id">>, ResponseFields),
+	    DocId = proplists:get_value(<<"id">>, ResponseFields),
+	    io:format("Document ~p created.~n", [DocId]),
 	    ok;
 	_ ->
 	    ok
@@ -131,4 +132,8 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
 		 SourceDoc::term()) -> ok).
 %% Update corresponding meta document if `title` or `modified` is updated.
 update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->    
+%    if
+%	MetaModified < SourceDoc#source_doc.modified ->
+	    
+
     {MetaId, MetaTitle, MetaModified, SourceDoc}.
