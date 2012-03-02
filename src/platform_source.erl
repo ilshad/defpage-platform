@@ -73,11 +73,6 @@ meta_doc({struct, Fields}) ->
 
 %% Create property with record #source_doc{} from json structure
 source_doc({struct, Fields}) ->
-
-    io:format("[~p] check - modified in : ~p~n",
-	      [proplists:get_value(<<"title">>, Fields),
-	       proplists:get_value(<<"modified">>, Fields)]),
-
     {proplists:get_value(<<"id">>, Fields),
      #source_doc{title = proplists:get_value(<<"title">>, Fields),
 		 modified = rfc3339:parse_epoch(
@@ -123,8 +118,7 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 201, _}, _, Body}} ->
 	    {struct, ResponseFields} = mochijson2:decode(Body),
-	    DocId = proplists:get_value(<<"id">>, ResponseFields),
-	    io:format("Document ~p created.~n", [DocId]),
+	    _DocId = proplists:get_value(<<"id">>, ResponseFields),
 	    ok;
 	_ ->
 	    ok
@@ -138,7 +132,7 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
 update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
     if
 	MetaTitle =/= SourceDoc#source_doc.title ->
-	    io:format("~n[~p] found modified title~n", [MetaId]),
+
 	    Fields = {struct, [{<<"title">>, SourceDoc#source_doc.title},
 			       {<<"modified">>, SourceDoc#source_doc.modified}]},
 
@@ -147,30 +141,29 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 		       "application/json",
 		       iolist_to_binary(mochijson2:encode(Fields))},
 
+	    % TODO have deal with response errors
 	    case httpc:request(post, Request, [], []) of
-		{ok, {{_, 204, _}, _, _}} ->
-		    io:format("[~p] updated successfully~n", [MetaId]);
-		{ok, {{_, RespStatus, _}, _, _}} ->
-		    io:format("[~p] error while upd title: ~p~n", [MetaId, RespStatus]);
-		_ ->
-		    io:format("[~p] unknown error while updating title~n", [MetaId])
+		{ok, {{_, 204, _}, _, _}} ->  ok;
+		{ok, {{_, _RespStatus, _}, _, _}} -> ok;
+		_ -> ok
 	    end;
 
 	MetaModified < SourceDoc#source_doc.modified ->
-	    io:format("~n[~p] found modified content. Time in source:~p. Time in meta:~p.~n", [MetaId, SourceDoc#source_doc.modified, MetaModified]),
+
 	    Fields = {struct, [{<<"modified">>, SourceDoc#source_doc.modified}]},
+
 	    Request = {?META_URL ++ "/documents/" ++ integer_to_list(MetaId),
 		       [?META_AUTH],
 		       "application/json",
 		       iolist_to_binary(mochijson2:encode(Fields))},
+
+	    % TODO have deal with response errors
 	    case httpc:request(post, Request, [], []) of
-		{ok, {{_, 204, _}, _, _}} ->
-		    io:format("[~p] updated successfully~n", [MetaId]);
-		{ok, {{_, RespStatus, _}, _, _}} ->
-		    io:format("[~p] error while upd title: ~p~n", [MetaId, RespStatus]);
-		_ ->
-		    io:format("[~p] unknown error while updating title~n", [MetaId])
+		{ok, {{_, 204, _}, _, _}} -> ok;
+		{ok, {{_, _RespStatus, _}, _, _}} -> ok;
+		_ -> ok
 	    end;
+
 	true ->
 	    ok
     end.
