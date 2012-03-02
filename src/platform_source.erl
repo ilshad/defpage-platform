@@ -12,10 +12,10 @@
 -record(meta_doc, {meta_id :: string(),
 		   source_type :: string(),
 		   title :: string(),
-		   modified :: integer()}).
+		   modified :: integer()}). % UNIX time
 
 -record(source_doc, {title :: string(),
-		     modified :: integer()}).
+		     modified :: integer()}). % UNIX time
 
 -spec(sync(Id::integer()) -> term()).
 %% @doc Run sync process.
@@ -35,9 +35,9 @@ get_meta(CollectionId) ->
 	    Docs = proplists:get_value(<<"documents">>, Fields),
 	    {source_type(Fields), [meta_doc(X) || X <- Docs]};
 	{ok, {{_, 404, _}, _, _}} ->
-	    error;
+	    {error_get_meta, []};
 	_ ->
-	    error
+	    {error_get_meta, []}
     end.
 
 -spec(source_type(Fields::[tuple()]) -> source_type()).
@@ -57,9 +57,9 @@ get_sources(gd, CollectionId) ->
 	{ok, {{_, 200, _}, _, Body}} ->
 	    [source_doc(X) || X <- mochijson2:decode(Body)];
 	{ok, {{_, 404, _}, _, _}} ->
-	    error;
+	    [error_get_source];
 	_ ->
-	    error
+	    [error_get_source]
     end.
 
 %% Create property with record #meta_doc{} from json structure
@@ -69,12 +69,17 @@ meta_doc({struct, Fields}) ->
      #meta_doc{meta_id = proplists:get_value(<<"id">>, Fields),
 	       source_type = proplists:get_value(<<"type">>, Source),
 	       title = proplists:get_value(<<"title">>, Fields),
-	       modified = rfc3339:parse_epoch(
+	       modified = list_to_integer(
 			    binary_to_list(
 			      proplists:get_value(<<"modified">>, Fields)))}}.
 
 %% Create property with record #source_doc{} from json structure
 source_doc({struct, Fields}) ->
+
+    io:format("[~p] check - modified in : ~p~n",
+	      [proplists:get_value(<<"title">>, Fields),
+	       proplists:get_value(<<"modified">>, Fields)]),
+
     {proplists:get_value(<<"id">>, Fields),
      #source_doc{title = proplists:get_value(<<"title">>, Fields),
 		 modified = rfc3339:parse_epoch(
@@ -109,7 +114,8 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
     Fields = {struct, [{<<"title">>, SourceDoc#source_doc.title},
 		       {<<"source">>, {struct, [{<<"type">>, SourceType},
 						{<<"id">>, SourceId}]}},
-		       {<<"collection_id">>, CollectionId}]},
+		       {<<"collection_id">>, CollectionId},
+		       {<<"modified">>, SourceDoc#source_doc.modified}]},
 
     Request = {?META_URL ++ "/documents/",
 	       [?META_AUTH],
@@ -131,15 +137,18 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
 		 MetaModified::integer(),
 		 SourceDoc::term()) -> ok).
 %% Update corresponding meta document if `title` or `modified` is updated.
-update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->    
+update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
     if
 	MetaTitle =/= SourceDoc#source_doc.title ->
 	    io:format("~n[~p] found modified title~n", [MetaId]),
-	    Fields = {struct, [{<<"title">>, SourceDoc#source_doc.title}]},
+	    Fields = {struct, [{<<"title">>, SourceDoc#source_doc.title},
+			       {<<"modified">>, SourceDoc#source_doc.modified}]},
+
 	    Request = {?META_URL ++ "/documents/" ++ integer_to_list(MetaId),
 		       [?META_AUTH],
 		       "application/json",
 		       iolist_to_binary(mochijson2:encode(Fields))},
+
 	    case httpc:request(post, Request, [], []) of
 		{ok, {{_, 204, _}, _, _}} ->
 		    io:format("[~p] updated successfully~n", [MetaId]);
@@ -148,9 +157,10 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 		_ ->
 		    io:format("[~p] unknown error while updating title~n", [MetaId])
 	    end;
+
 	MetaModified < SourceDoc#source_doc.modified ->
 	    io:format("~n[~p] found modified content~n", [MetaId]),
-	    Fields = {struct, [{<<"modified">>, true}]},
+	    Fields = {struct, [{<<"modified">>, SourceDoc#source_doc.modified}]},
 	    Request = {?META_URL ++ "/documents/" ++ integer_to_list(MetaId),
 		       [?META_AUTH],
 		       "application/json",
@@ -166,4 +176,3 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 	true ->
 	    ok
     end.
-
