@@ -64,7 +64,7 @@ get_sources(gd, CollectionId) ->
 
 %% Create property with record #meta_doc{} from json structure
 meta_doc({struct, Fields}) ->
-    {struct, Source} = mochijson2:decode(proplists:get_value(<<"source">>, Fields)), % ?!!
+    {struct, Source} = proplists:get_value(<<"source">>, Fields),
     {proplists:get_value(<<"id">>, Source),
      #meta_doc{meta_id = proplists:get_value(<<"id">>, Fields),
 	       source_type = proplists:get_value(<<"type">>, Source),
