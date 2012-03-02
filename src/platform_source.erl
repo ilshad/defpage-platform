@@ -132,8 +132,27 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
 		 SourceDoc::term()) -> ok).
 %% Update corresponding meta document if `title` or `modified` is updated.
 update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->    
-%    if
-%	MetaModified < SourceDoc#source_doc.modified ->
-	    
-
+    if
+	MetaTitle =/= SourceDoc#source_doc.title ->
+	    io:format(" [~p] found modified title~n", [MetaId]),
+	    Fields = {struct, [{<<"title">>, SourceDoc#source_doc.title}]},
+	    Request = {?META_URL ++ "/documents/" ++ integer_to_list(MetaId),
+		       [?META_AUTH],
+		       "application/json",
+		       iolist_to_binary(mochijson2:encode(Fields))},
+	    case httpc:request(post, Request, [], []) of
+		{ok, {{_, 204, _}, _, _}} ->
+		    io:format("[~p] updated successfully~n", [MetaId]);
+		{ok, {{_, RespStatus, _}, _, _}} ->
+		    io:format("[~p] error while upd title: ~p~n", [MetaId, RespStatus]);
+		_ ->
+		    io:format("[~p] unknown error while updating title~n", [MetaId])
+	    end;
+	MetaModified < SourceDoc#source_doc.modified ->
+	    io:format("Found modified content ~p~n", [MetaId]),
+	    _Fields = {struct, [{<<"modified">>, true}]},
+	    ok;
+	true ->
+	    ok
+    end,
     {MetaId, MetaTitle, MetaModified, SourceDoc}.
