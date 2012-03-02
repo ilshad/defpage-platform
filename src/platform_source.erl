@@ -165,5 +165,5 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 	    end;
 	true ->
 	    ok
-    end,
-    {MetaId, MetaTitle, MetaModified, SourceDoc}.
+    end.
+
