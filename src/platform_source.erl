@@ -69,9 +69,7 @@ meta_doc({struct, Fields}) ->
      #meta_doc{meta_id = proplists:get_value(<<"id">>, Fields),
 	       source_type = proplists:get_value(<<"type">>, Source),
 	       title = proplists:get_value(<<"title">>, Fields),
-	       modified = list_to_integer(
-			    binary_to_list(
-			      proplists:get_value(<<"modified">>, Fields)))}}.
+	       modified = proplists:get_value(<<"modified">>, Fields)}}.
 
 %% Create property with record #source_doc{} from json structure
 source_doc({struct, Fields}) ->
