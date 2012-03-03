@@ -160,7 +160,8 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 201, _}, _, Body}} ->
 	    {struct, ResponseFields} = mochijson2:decode(Body),
-	    _DocId = proplists:get_value(<<"id">>, ResponseFields),
+	    DocId = proplists:get_value(<<"id">>, ResponseFields),
+	    io:format("Document [~p] created~n", [DocId]),
 	    ok;
 	_ ->
 	    ok
@@ -178,6 +179,7 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
 
 update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
     if
+	% title modified
 	MetaTitle =/= SourceDoc#source_doc.title ->
 
 	    Fields = {struct, [{<<"title">>, SourceDoc#source_doc.title},
@@ -188,13 +190,13 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 		       "application/json",
 		       iolist_to_binary(mochijson2:encode(Fields))},
 
-	    % TODO have deal with response errors
-	    case httpc:request(post, Request, [], []) of
-		{ok, {{_, 204, _}, _, _}} ->  ok;
+	    case httpc:request(post, Request, [], []) of % TODO
+		{ok, {{_, 204, _}, _, _}} -> io:format("Title at [~p] modified", [MetaId]);
 		{ok, {{_, _RespStatus, _}, _, _}} -> ok;
 		_ -> ok
 	    end;
 
+	% content modified
 	MetaModified < SourceDoc#source_doc.modified ->
 
 	    Fields = {struct, [{<<"modified">>, SourceDoc#source_doc.modified}]},
@@ -204,9 +206,8 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 		       "application/json",
 		       iolist_to_binary(mochijson2:encode(Fields))},
 
-	    % TODO have deal with response errors
-	    case httpc:request(post, Request, [], []) of
-		{ok, {{_, 204, _}, _, _}} -> ok;
+	    case httpc:request(post, Request, [], []) of % TODO
+		{ok, {{_, 204, _}, _, _}} -> io:format("Content at [~p] modified", [MetaId]);
 		{ok, {{_, _RespStatus, _}, _, _}} -> ok;
 		_ -> ok
 	    end;

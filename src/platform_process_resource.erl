@@ -1,14 +1,10 @@
-%%% Run actions. Thi sis Webmachine resource.
+%%% Run actions. This is the Webmachine resource.
 
 -module(platform_process_resource).
 
--export([init/1,
-	 allowed_methods/2,
-	 process_post/2
-	 ]).
-	 
--include("platform.hrl").
+-export([init/1, allowed_methods/2, process_post/2]).
 
+-include("platform.hrl").
 -include_lib("webmachine/include/webmachine.hrl").
 
 init([]) -> {{trace, "/tmp"}, undefined}.
@@ -22,11 +18,12 @@ process_post(Req, State) ->
 
 %%------------------------------------------------------------------------------
 %%
-%%
+%% Run processes.
 %%
 %%------------------------------------------------------------------------------
 -spec(run([tuple()]) -> ok).
 
-run([{"sync_collection_source", CollectionId} | _]) ->
-    io:format("Processing: ~p~n", [CollectionId]).
-
+run([{<<"sync_collection_source">>, CollectionId} | _]) ->
+    spawn(fun() ->
+		  platform_source:sync(CollectionId)
+	  end).
