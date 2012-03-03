@@ -1,32 +1,45 @@
-%% @copyright 2012 defpage.com
-%% @doc Synchronize documents in metadata server with sources.
+%%% Synchronize documents in metadata server with sources.
 
 -module(platform_source).
+
+%% API
 -export([sync/1]).
+
+%% testing
 -export([get_meta/1, get_sources/2]).
 
 -include("platform.hrl").
 
 -type(source_type() :: gd | undefined).
 
--record(meta_doc, {meta_id :: string(),
-		   source_type :: string(),
-		   title :: string(),
-		   modified :: integer()}). % UNIX time
+-record(meta_doc, {meta_id      :: string(),
+		   source_type  :: string(),
+		   title        :: string(),
+		   modified     :: integer()}). % UNIX time
 
--record(source_doc, {title :: string(),
-		     modified :: integer()}). % UNIX time
+-record(source_doc, {title      :: string(),
+		     modified   :: integer()}). % UNIX time
 
+%%------------------------------------------------------------------------------
+%%
+%% Run sync process.
+%%
+%%------------------------------------------------------------------------------
 -spec(sync(Id::integer()) -> term()).
-%% @doc Run sync process.
+
 sync(CollectionId) ->
     {SourceType, MetaDocs} = get_meta(CollectionId),
     SourceDocs = get_sources(SourceType, CollectionId),
     lists:foreach(get_fun_update(SourceType, CollectionId, MetaDocs), SourceDocs),
     ok.
 
--spec(get_meta(CollectionId::integer()) -> {source_type(), [#meta_doc{}]}).
+%%------------------------------------------------------------------------------
+%%
 %% Get metadata info.
+%%
+%%------------------------------------------------------------------------------
+-spec(get_meta(CollectionId::integer()) -> {source_type(), [#meta_doc{}]}).
+
 get_meta(CollectionId) ->
     Url = ?META_URL ++ "/collections/" ++ integer_to_list(CollectionId),
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
@@ -40,8 +53,13 @@ get_meta(CollectionId) ->
 	    {error_get_meta, []}
     end.
 
--spec(source_type(Fields::[tuple()]) -> source_type()).
+%%------------------------------------------------------------------------------
+%%
 %% Extract source type for collection. Assume alone.
+%%
+%%------------------------------------------------------------------------------
+-spec(source_type(Fields::[tuple()]) -> source_type()).
+
 source_type(Fields) ->
     [{struct, Source} | _] = proplists:get_value(<<"sources">>, Fields),
     case proplists:get_value(<<"type">>, Source) of
@@ -49,8 +67,13 @@ source_type(Fields) ->
 	_ -> error
     end.
 
--spec(get_sources(source_type(), CollectionId::integer()) -> [#source_doc{}]).
+%%------------------------------------------------------------------------------
+%%
 %% Get list of info about source documents.
+%%
+%%------------------------------------------------------------------------------
+-spec(get_sources(source_type(), CollectionId::integer()) -> [#source_doc{}]).
+
 get_sources(gd, CollectionId) ->
     Url = ?GD_URL ++ "/api/collection/" ++ integer_to_list(CollectionId) ++ "/documents",
     case httpc:request(Url) of
@@ -62,7 +85,11 @@ get_sources(gd, CollectionId) ->
 	    [error_get_source]
     end.
 
+%%------------------------------------------------------------------------------
+%%
 %% Create property with record #meta_doc{} from json structure
+%%
+%%------------------------------------------------------------------------------
 meta_doc({struct, Fields}) ->
     {struct, Source} = proplists:get_value(<<"source">>, Fields),
     {proplists:get_value(<<"id">>, Source),
@@ -71,7 +98,11 @@ meta_doc({struct, Fields}) ->
 	       title = proplists:get_value(<<"title">>, Fields),
 	       modified = proplists:get_value(<<"modified">>, Fields)}}.
 
+%%------------------------------------------------------------------------------
+%%
 %% Create property with record #source_doc{} from json structure
+%%
+%%------------------------------------------------------------------------------
 source_doc({struct, Fields}) ->
     {proplists:get_value(<<"id">>, Fields),
      #source_doc{title = proplists:get_value(<<"title">>, Fields),
@@ -79,14 +110,19 @@ source_doc({struct, Fields}) ->
 			      binary_to_list(
 				proplists:get_value(<<"modified">>, Fields)))}}.
 
--spec(get_fun_update(SourceType::atom(),
-		     CollectionId::integer(),
-		     MetaDocs::list()) -> function()).
+%%------------------------------------------------------------------------------
+%%
 %% Return function which update meta docs if need, for given source document.
 %% Check meta for corresponding document by given source.
 %% If it does not found, then create new document.
 %% If there is a corresponding document, then check `modified` and `title`
 %% and update if need.
+%%
+%%------------------------------------------------------------------------------
+-spec(get_fun_update(SourceType::atom(),
+		     CollectionId::integer(),
+		     MetaDocs::list()) -> function()).
+
 get_fun_update(SourceTypeAtom, CollectionId, MetaDocs) ->
     SourceType = list_to_binary(atom_to_list(SourceTypeAtom)),
     fun({SourceId, SourceDoc}) ->
@@ -98,11 +134,17 @@ get_fun_update(SourceTypeAtom, CollectionId, MetaDocs) ->
 	    end
     end.
 
+%%------------------------------------------------------------------------------
+%%
+%% Create corresponding document in the metadata server for given source
+%% document.
+%%
+%%------------------------------------------------------------------------------
 -spec(create_doc(CollectionId::integer(),
 		 SourceType::atom(),
 		 SourceId::string(),
 		 SourceDoc::term()) -> ok).
-%% Create corresponding document in the metadata server for given source document.
+
 create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
     Fields = {struct, [{<<"title">>, SourceDoc#source_doc.title},
 		       {<<"source">>, {struct, [{<<"type">>, SourceType},
@@ -124,11 +166,16 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
 	    ok
     end.
 
+%%------------------------------------------------------------------------------
+%%
+%% Update corresponding meta document if `title` or `modified` is updated.
+%%
+%%------------------------------------------------------------------------------
 -spec(update_doc(MetaId::string(),
 		 MetaTitle::string(),
 		 MetaModified::integer(),
 		 SourceDoc::term()) -> ok).
-%% Update corresponding meta document if `title` or `modified` is updated.
+
 update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
     if
 	MetaTitle =/= SourceDoc#source_doc.title ->
