@@ -28,10 +28,14 @@
 -spec(sync(Id::integer()) -> term()).
 
 sync(CollectionId) ->
-    {SourceType, MetaDocs} = get_meta(CollectionId),
-    SourceDocs = get_sources(SourceType, CollectionId),
-    lists:foreach(get_fun_update(SourceType, CollectionId, MetaDocs), SourceDocs),
-    ok.
+    case get_meta(CollectionId) of
+	{error, not_found} -> ok;
+	{error, undefined} -> error;
+	{SourceType, MetaDocs} ->
+	    SourceDocs = get_sources(SourceType, CollectionId),
+	    Fun = get_fun_update(SourceType, CollectionId, MetaDocs),
+	    lists:foreach(Fun, SourceDocs)
+    end.
 
 %%------------------------------------------------------------------------------
 %%
@@ -47,10 +51,8 @@ get_meta(CollectionId) ->
 	    {struct, Fields} = mochijson2:decode(Body),
 	    Docs = proplists:get_value(<<"documents">>, Fields),
 	    {source_type(Fields), [meta_doc(X) || X <- Docs]};
-	{ok, {{_, 404, _}, _, _}} ->
-	    {error_get_meta, []};
-	_ ->
-	    {error_get_meta, []}
+	{ok, {{_, 404, _}, _, _}} -> {error, not_found};
+	_ -> {error, undefined}
     end.
 
 %%------------------------------------------------------------------------------
@@ -163,8 +165,7 @@ create_doc(CollectionId, SourceType, SourceId, SourceDoc) ->
 	    DocId = proplists:get_value(<<"id">>, ResponseFields),
 	    io:format("Document [~p] created~n", [DocId]),
 	    ok;
-	_ ->
-	    ok
+	_ -> ok
     end.
 
 %%------------------------------------------------------------------------------
@@ -212,6 +213,5 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 		_ -> ok
 	    end;
 
-	true ->
-	    ok
+	true -> ok
     end.
