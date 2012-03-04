@@ -13,7 +13,7 @@ allowed_methods(Req, State) -> {['POST'], Req, State}.
 
 process_post(Req, State) ->
     {struct, [{Action, Param} | _]} = mochijson2:decode(wrq:req_body(Req)),
-    run(list_to_atom(binary_to_list(Action)), Param),
+    spawn(fun() -> run(list_to_atom(binary_to_list(Action)), Param) end),
     {true, Req, State}.
 
 %%------------------------------------------------------------------------------
@@ -23,14 +23,18 @@ process_post(Req, State) ->
 %%------------------------------------------------------------------------------
 -spec(run(Action::atom(), Params::term()) -> ok).
 
-run(sync_collection_source, CollectionId) ->
-    spawn(fun() -> platform_source:sync(CollectionId) end);
+run(update_meta, []) ->
+    run(update_meta, [0, max_collection_id()]);
 
-run(sync_collection_source_batch, []) ->
-    run(sync_collection_source_batch, [0, max_collection_id()]);
+run(update_meta, [StartId, StopId]) when StartId =< StopId ->
+    run(update_meta, StartId),
+    run(update_meta, [StartId+1, StopId]);
 
-run(sync_collection_source_batch, [_StartId, _StopId]) ->
-    ok.
+run(update_meta, [StartId, StopId]) when StartId > StopId ->
+    ok;
+
+run(update_meta, CollectionId) ->
+    spawn(fun() -> platform_source:sync(CollectionId) end).
 
 %%------------------------------------------------------------------------------
 %%
@@ -46,5 +50,3 @@ max_collection_id() ->
 	    proplists:get_value(<<"max_id">>, Fields);
 	_ -> error
     end.
-
-

@@ -192,7 +192,7 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 		       iolist_to_binary(mochijson2:encode(Fields))},
 
 	    case httpc:request(post, Request, [], []) of % TODO
-		{ok, {{_, 204, _}, _, _}} -> io:format("Title at [~p] modified", [MetaId]);
+		{ok, {{_, 204, _}, _, _}} -> io:format("Title at [~p] modified~n", [MetaId]);
 		{ok, {{_, _RespStatus, _}, _, _}} -> ok;
 		_ -> ok
 	    end;
@@ -208,7 +208,7 @@ update_doc(MetaId, MetaTitle, MetaModified, SourceDoc) ->
 		       iolist_to_binary(mochijson2:encode(Fields))},
 
 	    case httpc:request(post, Request, [], []) of % TODO
-		{ok, {{_, 204, _}, _, _}} -> io:format("Content at [~p] modified", [MetaId]);
+		{ok, {{_, 204, _}, _, _}} -> io:format("Content at [~p] modified~n", [MetaId]);
 		{ok, {{_, _RespStatus, _}, _, _}} -> ok;
 		_ -> ok
 	    end;
