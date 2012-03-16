@@ -63,7 +63,7 @@ get_meta(CollectionId) ->
 -spec(source_type(Fields::[tuple()]) -> source_type()).
 
 source_type(Fields) ->
-    [{struct, Source} | _] = proplists:get_value(<<"sources">>, Fields),
+    {struct, Source} = proplists:get_value(<<"source">>, Fields),
     case proplists:get_value(<<"type">>, Source) of
 	<<"gd">> -> gd;
 	_ -> error
