@@ -5,4 +5,4 @@ Build and run:
 
 Testing:
 
-  $ curl -i --data '{"sync_collection_source": 1}' --header "Content-Type: application/json" http://localhost:9010/process
+  $ curl -i --data '{"update_meta": 1}' --header "Content-Type: application/json" http://localhost:9010/process

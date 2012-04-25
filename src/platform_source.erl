@@ -6,7 +6,7 @@
 -export([sync/1]).
 
 %% testing
--export([get_meta/1, get_sources/2]).
+-export([get_meta/1, get_sources/2, get_metadocs/1]).
 
 -include("platform.hrl").
 
@@ -49,8 +49,24 @@ get_meta(CollectionId) ->
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
 	    {struct, Fields} = mochijson2:decode(Body),
-	    Docs = proplists:get_value(<<"documents">>, Fields),
-	    {source_type(Fields), [meta_doc(X) || X <- Docs]};
+	    {source_type(Fields), get_metadocs(CollectionId)};
+	{ok, {{_, 404, _}, _, _}} -> {error, not_found};
+	_ -> {error, undefined}
+    end.
+
+%%------------------------------------------------------------------------------
+%%
+%% Return list of documents info from metadata server for given
+%% collection id.
+%%
+%%------------------------------------------------------------------------------
+-spec(get_metadocs(CollectionId::integer()) -> MetaDocs::list()).
+
+get_metadocs(CollectionId) ->
+    Url = ?META_URL ++ "/collections/" ++ integer_to_list(CollectionId) ++ "/documents/",
+    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
+	{ok, {{_, 200, _}, _, Body}} ->
+	    [meta_doc(X) || X <- mochijson2:decode(Body)];
 	{ok, {{_, 404, _}, _, _}} -> {error, not_found};
 	_ -> {error, undefined}
     end.
@@ -127,12 +143,17 @@ source_doc({struct, Fields}) ->
 
 get_fun_update(SourceTypeAtom, CollectionId, MetaDocs) ->
     SourceType = list_to_binary(atom_to_list(SourceTypeAtom)),
-    fun({SourceId, SourceDoc}) ->
-	    case proplists:get_value(SourceId, MetaDocs) of
-		undefined ->
-		    create_doc(CollectionId, SourceType, SourceId, SourceDoc);
-		{meta_doc, MetaId, SourceType, MetaTitle, MetaModified} ->
-		    update_doc(MetaId, MetaTitle, MetaModified, SourceDoc)
+    fun(Document) ->
+	    case Document of
+		error_get_source ->
+		    ok;
+		{SourceId, SourceDoc} ->
+		    case proplists:get_value(SourceId, MetaDocs) of
+			undefined ->
+			    create_doc(CollectionId, SourceType, SourceId, SourceDoc);
+			{meta_doc, MetaId, SourceType, MetaTitle, MetaModified} ->
+			    update_doc(MetaId, MetaTitle, MetaModified, SourceDoc)
+		    end
 	    end
     end.
 
