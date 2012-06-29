@@ -17,3 +17,7 @@ distclean: clean
 
 docs:
 	@erl -noshell -run edoc_run application '$(APP)' '"."' '[]'
+
+config:
+	@mkdir -p include
+	@cp src/platform.hrl.src include/platform.hrl
