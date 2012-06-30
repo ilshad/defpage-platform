@@ -1,8 +1,0 @@
-Build and run:
-
-  $ make
-  $ ./start.sh
-
-Testing:
-
-  $ curl -i --data '{"update_meta": 1}' --header "Content-Type: application/json" http://localhost:9010/process
