@@ -5,4 +5,5 @@ deps/*
 *.beam
 *.dump
 rebar
+include/platform.hrl
 
