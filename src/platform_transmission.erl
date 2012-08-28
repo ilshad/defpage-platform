@@ -18,19 +18,27 @@
 -record(dirty_transmission, {url :: string(), auth :: auth()}.
 -type(transmission() :: #rest_transmission{} | #dirty_transmission{}).
 
+-record(content, {title :: string(),
+		  abstract :: string(),
+		  body :: string()}).
+
 %%------------------------------------------------------------------------------
 %%
-%% Create entry (transmit document to the host fisrt time) by given transmission
+%% Transmit document to the host fisrt time by given transmission
 %% metadata and documents's content. Return doc Id.
 %%
 %%------------------------------------------------------------------------------
--spec(create_entry(Transmission::transmission(), Content:string()) -> string()).
+-spec(create_entry(Transmission::transmission(),
+		   Content::#content{}) -> string()).
 
 create_entry(#rest_transmission=Transmission, Content) ->
+    ContentFields = {struct, [{<<"title">>, Content#content.title},
+			      {<<"abstract">>,  Content#content.abstract},
+			      {<<"body">>, Content#content.body}]},
     Request = {Transmission#rest_transmission.url,
 	       [auth_header(Transmission#rest_transmission.auth)],
 	       "application/json",
-	       iolist_to_binary(mochijson2:encode(Fields))},
+	       iolist_to_binary(mochijson2:encode(ContentFields))},
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 201, _}, _, Body}} ->
 	    {struct, ResponseFields} = mochijson2:decode(Body),
