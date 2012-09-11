@@ -23,7 +23,7 @@
 	      title :: string(),
 	      version :: integer()}).
 
--record(transmission, {id :: integer(), % transmission id
+-record(transmission, {hostdoc_id :: string(),
 		       version :: integer(),
 		       transmission_settings :: transmission_settings()}).
 
@@ -77,12 +77,12 @@ transmissions(Id) ->
     end.
 
 transmission({struct, Fields}) ->
-    #transmission{id = proplists:get_value(<<"id">>, Fields),
+    #transmission{hostdoc_id = proplists:get_value(<<"hostdoc_id">>, Fields),
 		  version = proplists:get_value(<<"version">>, Fields),
 		  transmission_settings =
 		      transmission_settings(
 			list_to_atom(proplists:get_value(<<"type">>, Fields)),
-			proplists:get_Value(<<"params">>, Fields))}.
+			proplists:get_value(<<"params">>, Fields))}.
 
 transmission_settings(rest, {struct, Fields}) ->
     #rest_transmission_settings{url = proplists:get_value(<<"url">>, Fields),
@@ -107,6 +107,7 @@ auth({struct, Fields}) ->
 %% transmission.
 %%
 %%------------------------------------------------------------------------------
+-spec(process_transmission(#doc{}, #transmission{}) -> ok).	     
 
 process_transmission(Doc, Transmission)
   when Transmission#transmission.version == 0 ->
@@ -129,9 +130,9 @@ process_transmission(_, _) ->
 %% Process "create" transmission.
 %%
 %%------------------------------------------------------------------------------
--spec(do_create(transmission(), #content{}) -> ok).
+-spec(do_create(#doc{}, #transmission{}) -> ok).
 
-do_create(Doc, #rest_transmission{url=Url, auth=Auth}) ->
+do_create(Doc, #transmission #rest_transmission{url=Url, auth=Auth}) ->
     {Title, Abstract, Body} = content(Doc),
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"abstract">>,  Abstract},
