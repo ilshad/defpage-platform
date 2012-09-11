@@ -29,8 +29,8 @@
 
 %%------------------------------------------------------------------------------
 %%
-%% Update document (create / edit / delete) on every host according to
-%% its transmission settings and its state on the server.
+%% Update document (create / edit / delete) on every host specified
+%% in its transmissions.
 %%
 %%------------------------------------------------------------------------------
 -spec(update_document(Id::integer()) -> ok).
@@ -169,12 +169,3 @@ auth_header(#basic_auth{username=Username, password=Password}) ->
 
 auth_header(#secret_auth{secret=Secret}) ->
     {"X-Secret", Secret}.
-
-%-spec(content(Title::string(),
-%	      Abstract::string(),
-%	      Body::string()) -> #content{}).
-%
-%content(Title, Abstract, Body) ->
-%    #content{title = Title,
-%	     abstract = Abstract,
-%	     body = binary_to_list(base64:encode(Body))}.
