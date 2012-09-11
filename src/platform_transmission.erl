@@ -14,8 +14,14 @@
 -record(secret_auth, {secret :: string()}).
 -type(auth() :: #basic_auth{} | #secret_auth{}).
 
--record(rest_transmission_settings, {url :: string(), auth :: auth()}).
--record(dirty_transmission_settings, {url :: string(), auth :: auth()}).
+-record(rest_transmission_settings, {id :: integer(),
+				     url :: string(),
+				     auth :: auth()}).
+
+-record(dirty_transmission_settings, {id :: integer(),
+				      url :: string(),
+				      auth :: auth()}).
+
 -type(transmission_settings() :: #rest_transmission_settings{} |
 				 #dirty_transmission_settings{}).
 
@@ -23,23 +29,16 @@
 	      title :: string(),
 	      version :: integer()}).
 
--record(transmission, {hostdoc_id :: string(),
-		       version :: integer(),
-		       transmission_settings :: transmission_settings()}).
-
 %%------------------------------------------------------------------------------
 %%
 %% Update document (create / edit / delete) on every host specified
-%% in its transmissions.
+%% by its transmissions settings.
 %%
 %%------------------------------------------------------------------------------
 -spec(update_document(Id::integer()) -> ok).
 
 update_document(Id) ->
-    Doc = doc(Id),
-    Data = map(fun (x) -> {Doc, x} end, transmissions(Id)),
-    lists:foreach(process_transmission, Data),
-    ok.
+    lists:foreach(process_transmission, transmissions(doc(Id))).
 
 %%------------------------------------------------------------------------------
 %%
@@ -65,31 +64,32 @@ doc(Id) ->
 %% Ask metadata server for specified document transmissions and their state.
 %%
 %%------------------------------------------------------------------------------
--spec(transmissions(Id::integer()) -> DocumentTransmissions::list()).
+-spec(transmissions(Id::integer()) -> list()).
 
-transmissions(Id) ->
-    Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id) ++ "/transmissions/",
+transmissions(Doc) ->
+    Url = ?META_URL ++ "/documents/" ++ integer_to_list(Doc#doc.id) ++ "/transmissions/",
     case https:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
-	    [transmission(X) || X <- mochijson2:decode(Body)];
+	    [{Doc, transmission(X)} || X <- mochijson2:decode(Body)];
 	_ ->
 	    ok
     end.
 
 transmission({struct, Fields}) ->
-    #transmission{hostdoc_id = proplists:get_value(<<"hostdoc_id">>, Fields),
-		  version = proplists:get_value(<<"version">>, Fields),
-		  transmission_settings =
-		      transmission_settings(
-			list_to_atom(proplists:get_value(<<"type">>, Fields)),
-			proplists:get_value(<<"params">>, Fields))}.
+     {proplists:get_value(<<"hostdoc_id">>, Fields),
+      proplists:get_value(<<"version">>, Fields),
+      transmission_settings(list_to_atom(proplists:get_value(<<"type">>, Fields)),
+			    proplists:get_value(<<"id">>, Fields),
+			    proplists:get_value(<<"params">>, Fields))}.
 
-transmission_settings(rest, {struct, Fields}) ->
-    #rest_transmission_settings{url = proplists:get_value(<<"url">>, Fields),
+transmission_settings(rest, Id, {struct, Fields}) ->
+    #rest_transmission_settings{id = Id,
+				url = proplists:get_value(<<"url">>, Fields),
 				auth = auth(proplists:get_value(<<"authentication">>))};
 
-transmission_settings(dirty, {struct, Fields}) ->
-    #dirty_transmission_settings{url = proplists:get_value(<<"url">>, Fields),
+transmission_settings(dirty, Id, {struct, Fields}) ->
+    #dirty_transmission_settings{id = Id,
+				 url = proplists:get_value(<<"url">>, Fields),
 				 auth = auth(proplists:get_value(<<"authentication">>))}.
 
 auth({struct, Fields}) ->
@@ -109,18 +109,16 @@ auth({struct, Fields}) ->
 %%------------------------------------------------------------------------------
 -spec(process_transmission(#doc{}, #transmission{}) -> ok).	     
 
-process_transmission(Doc, Transmission)
-  when Transmission#transmission.version == 0 ->
-    do_create(Doc, Transmission));
+process_transmission({Doc, {_, 0, TransmissionSettings}}) ->
+    do_create(Doc, TransmissionSettings));
 
-process_transmission(Doc, Transmission)
-  when Transmission#transmission.version > 0 ->
-    if
-	Transmission#transmission.version < Doc#doc.version ->
-	    do_edit(Doc, Transmission);
-	true ->
-	    ok
-    end.
+process_transmission({Doc, {HostDocId, Version, TransmissionSettings}})
+  when Version < Doc#doc.version ->
+    do_edit(Doc, Transmission);
+
+process_transmission({Doc, {HostDocId, Version, TransmissionSettings}})
+  when Version == Doc#doc.version ->
+    ok;
 
 process_transmission(_, _) ->
     error.
@@ -130,12 +128,12 @@ process_transmission(_, _) ->
 %% Process "create" transmission.
 %%
 %%------------------------------------------------------------------------------
--spec(do_create(#doc{}, #transmission{}) -> ok).
+-spec(do_create(Id, Version, TransmissionSettings) -> ok).
 
-do_create(Doc, #transmission #rest_transmission{url=Url, auth=Auth}) ->
-    {Title, Abstract, Body} = content(Doc),
+do_create(Doc, #rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth}) ->
+    {Title, Abstract, Body} = content(Doc#doc.id),
     Fields = {struct, [{<<"title">>, Title},
-		       {<<"abstract">>,  Abstract},
+		       {<<"abstract">>, Abstract},
 		       {<<"body">>, Body}]},
     Request = {Url,
 	       [auth_header(Auth)],
@@ -144,9 +142,25 @@ do_create(Doc, #transmission #rest_transmission{url=Url, auth=Auth}) ->
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 201, _}, _, Body}} ->
 	    {struct, Res} = mochijson2:decode(Body),
-	    HostDocId = proplists:get_value(<<"id">>, Res);
+	    HostDocId = proplists:get_value(<<"id">>, Res),
+	    save_create(Doc#doc.id, Doc#doc.version, TransmissionId, HostDocId);
 	_ ->
 	    error
+    end.
+
+%% save info in metadata server
+save_create(DocId, Version, TransmissionId, HostDocId) ->
+    Fields = {struct, [{<<"transmission_id">>, TransmissionId},
+		       {<<"hostdoc_id">>, HostDocId},
+		       {<<"created">>, 0},
+		       {<<"version">>, Version}]},
+    Request = {?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions/",
+	       [?META_AUTH],
+	       "application/json",
+	       iolist_to_binary(mochijson2:encode(Fields))},
+    case httpc:request(post, Request, [], []) of
+	{ok, {{_, 204, _}, _, _}} -> ok;
+	_ -> error
     end.
 
 %%------------------------------------------------------------------------------
