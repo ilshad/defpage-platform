@@ -143,7 +143,7 @@ source_doc({struct, Fields}) ->
 
 get_fun_update(SourceTypeAtom, CollectionId, MetaDocs) ->
     SourceType = list_to_binary(atom_to_list(SourceTypeAtom)),
-    fun(Document) ->
+    fun (Document) ->
 	    case Document of
 		error_get_source ->
 		    ok;
