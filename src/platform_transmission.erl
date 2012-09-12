@@ -5,8 +5,8 @@
 %% API
 -export([]).
 
-%% export
--testing([do_create/2, content/3]).
+%% testing
+-export([update_document/1]).
 
 -include("platform.hrl").
 
@@ -25,10 +25,6 @@
 -type(transmission_settings() :: #rest_transmission_settings{} |
 				 #dirty_transmission_settings{}).
 
--record(doc, {id :: integer(),
-	      title :: string(),
-	      version :: integer()}).
-
 %%------------------------------------------------------------------------------
 %%
 %% Update document (create / edit / delete) on every host specified
@@ -38,52 +34,58 @@
 -spec(update_document(Id::integer()) -> ok).
 
 update_document(Id) ->
-    lists:foreach(process_transmission, transmissions(doc(Id))).
+    walk(transmissions(version(Id))).
+
+walk([ H | T ]) ->
+    process_transmission(H),
+    update_document(T).
+
+%update_document(Id) ->
+%    lists:foreach(process_transmission, transmissions(version(Id))).
 
 %%------------------------------------------------------------------------------
 %%
-%% Ask metadata server for document base attributes.
+%% Ask metadata server for document attribute - version.
 %%
 %%------------------------------------------------------------------------------
--spec((Id::integer()) -> #doc{}).
+-spec(version(Id::integer()) -> {Id::integer(), Version::integer()}).
 
-doc(Id) ->
+version(Id) ->
     Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id),
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
 	    {struct, Fields} = mochijson2:decode(Body),
-	    #doc{id = Id,
-		 title = proplists:get_value(<<"title">>, Fields),
-		 version = proplists:get_value(<<"version">>, Fields)};
+	    {Id, proplists:get_value(<<"version">>, Fields)};
 	_ ->
 	    error
     end.
 
 %%------------------------------------------------------------------------------
 %%
-%% Ask metadata server for specified document transmissions and their state.
+%% Ask metadata server for all transmissions of taken document.
 %%
 %%------------------------------------------------------------------------------
--spec(transmissions(Id::integer()) -> list()).
+-spec(transmissions({Id::integer(), Version::integer()}) -> list()).
 
-transmissions(Doc) ->
-    Url = ?META_URL ++ "/documents/" ++ integer_to_list(Doc#doc.id) ++ "/transmissions/",
+transmissions(error) -> [];
+transmissions({Id, Version}) ->
+    Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id) ++ "/transmissions/",
     case https:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
-	    [{Doc, transmission(X)} || X <- mochijson2:decode(Body)];
+	    [{Id, Version, transmission_entry(X)} || X <- mochijson2:decode(Body)];
 	_ ->
-	    ok
+	    []
     end.
 
-transmission({struct, Fields}) ->
+transmission_entry({struct, Fields}) ->
      {proplists:get_value(<<"hostdoc_id">>, Fields),
       proplists:get_value(<<"version">>, Fields),
       transmission_settings(list_to_atom(proplists:get_value(<<"type">>, Fields)),
 			    proplists:get_value(<<"id">>, Fields),
 			    proplists:get_value(<<"params">>, Fields))}.
 
-transmission_settings(rest, Id, {struct, Fields}) ->
-    #rest_transmission_settings{id = Id,
+transmission_settings(rest, TransmissionId, {struct, Fields}) ->
+    #rest_transmission_settings{id = TransmissionId,
 				url = proplists:get_value(<<"url">>, Fields),
 				auth = auth(proplists:get_value(<<"authentication">>))};
 
@@ -107,20 +109,25 @@ auth({struct, Fields}) ->
 %% transmission.
 %%
 %%------------------------------------------------------------------------------
--spec(process_transmission(#doc{}, #transmission{}) -> ok).	     
+-spec(process_transmission({Id::integer(), % document id
+			    Version::integer(), % actual document version
+			    {HostDocId::string(), % document id form the host
+			     TransmissionVersion::integer(), % transmitted version
+			     TransmissionSettings::transmission_settings()
+			    }}) -> ok).
 
-process_transmission({Doc, {_, 0, TransmissionSettings}}) ->
-    do_create(Doc, TransmissionSettings));
+process_transmission({Id, Version, {_, 0, TransmissionSettings}}) ->
+    do_create(Id, Version, TransmissionSettings);
 
-process_transmission({Doc, {HostDocId, Version, TransmissionSettings}})
-  when Version < Doc#doc.version ->
-    do_edit(Doc, Transmission);
+process_transmission({Id, Version, {HostDocId, TransmissionVersion, TransmissionSettings}})
+  when TransmissionVersion < Version ->
+    do_edit(Id, Version, HostDocId, TransmissionSettings);
 
-process_transmission({Doc, {HostDocId, Version, TransmissionSettings}})
-  when Version == Doc#doc.version ->
+process_transmission({_, Version, {_, TransmissionVersion, _}})
+  when TransmissionVersion == Version ->
     ok;
 
-process_transmission(_, _) ->
+process_transmission(_) ->
     error.
 
 %%------------------------------------------------------------------------------
@@ -128,10 +135,12 @@ process_transmission(_, _) ->
 %% Process "create" transmission.
 %%
 %%------------------------------------------------------------------------------
--spec(do_create(Id, Version, TransmissionSettings) -> ok).
+-spec(do_create(Id::integer(),
+		Version::integer(),
+		TransmissionSettings::transmission_settings()) -> ok).
 
-do_create(Doc, #rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth}) ->
-    {Title, Abstract, Body} = content(Doc#doc.id),
+do_create(Id, Version, #rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth}) ->
+    {Title, Abstract, Body} = content(Id),
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"abstract">>, Abstract},
 		       {<<"body">>, Body}]},
@@ -143,7 +152,7 @@ do_create(Doc, #rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth
 	{ok, {{_, 201, _}, _, Body}} ->
 	    {struct, Res} = mochijson2:decode(Body),
 	    HostDocId = proplists:get_value(<<"id">>, Res),
-	    save_create(Doc#doc.id, Doc#doc.version, TransmissionId, HostDocId);
+	    save_create(Id, Version, TransmissionId, HostDocId);
 	_ ->
 	    error
     end.
@@ -168,8 +177,13 @@ save_create(DocId, Version, TransmissionId, HostDocId) ->
 %% Process "edit" transmission.
 %%
 %%------------------------------------------------------------------------------
--spec(do_edit(transmission(), #content{}) -> ok).
+-spec(do_edit(Id::integer(),
+	      Version::integer(),
+	      HostDocId::string(),
+	      TransmissionSettings::transmission_settings()) -> ok).
 
+do_edit(_, _, _, #rest_transmission_settings{id=_, url=_, auth=_}) ->
+    ok.
 
 %%------------------------------------------------------------------------------
 %%
@@ -184,3 +198,15 @@ auth_header(#basic_auth{username=Username, password=Password}) ->
 
 auth_header(#secret_auth{secret=Secret}) ->
     {"X-Secret", Secret}.
+
+%%------------------------------------------------------------------------------
+%%
+%% Get content.
+%%
+%%------------------------------------------------------------------------------
+-spec(content(Id::integer()) -> {Title::integer(),
+				 Abstract::integer(),
+				 Body::integer()}).
+
+content(_) ->
+    {<<"Foo document">>, <<"What is it about?">>, <<"Just nothing...">>}.
