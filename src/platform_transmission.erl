@@ -34,14 +34,11 @@
 -spec(update_document(Id::integer()) -> ok).
 
 update_document(Id) ->
-    walk(transmissions(version(Id))).
+    walk(transmissions(Id, version(Id))).
 
 walk([ H | T ]) ->
     process_transmission(H),
-    update_document(T).
-
-%update_document(Id) ->
-%    lists:foreach(process_transmission, transmissions(version(Id))).
+    walk(T).
 
 %%------------------------------------------------------------------------------
 %%
@@ -55,7 +52,7 @@ version(Id) ->
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
 	    {struct, Fields} = mochijson2:decode(Body),
-	    {Id, proplists:get_value(<<"version">>, Fields)};
+	    proplists:get_value(<<"version">>, Fields);
 	_ ->
 	    error
     end.
@@ -65,10 +62,10 @@ version(Id) ->
 %% Ask metadata server for all transmissions of taken document.
 %%
 %%------------------------------------------------------------------------------
--spec(transmissions({Id::integer(), Version::integer()}) -> list()).
+-spec(transmissions(Id::integer(), Version::integer() | error) -> list()).
 
-transmissions(error) -> [];
-transmissions({Id, Version}) ->
+transmissions(_, error) -> [];
+transmissions(Id, Version) ->
     Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id) ++ "/transmissions/",
     case https:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
