@@ -38,7 +38,10 @@ update_document(Id) ->
 
 walk([ H | T ]) ->
     process_transmission(H),
-    walk(T).
+    walk(T);
+
+walk([]) ->
+    ok.
 
 %%------------------------------------------------------------------------------
 %%
@@ -67,7 +70,7 @@ version(Id) ->
 transmissions(_, error) -> [];
 transmissions(Id, Version) ->
     Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id) ++ "/transmissions/",
-    case https:request(get, {Url, [?META_AUTH]}, [], []) of
+    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
 	    [{Id, Version, transmission_entry(X)} || X <- mochijson2:decode(Body)];
 	_ ->
