@@ -86,21 +86,21 @@ transmission_entry({struct, Fields}) ->
 
 transmission_settings(rest, TransmissionId, {struct, Fields}) ->
     #rest_transmission_settings{id = TransmissionId,
-				url = proplists:get_value(<<"url">>, Fields),
-				auth = auth(proplists:get_value(<<"authentication">>))};
+				url = binary_to_list(proplists:get_value(<<"url">>, Fields)),
+				auth = auth(proplists:get_value(<<"authentication">>, Fields))};
 
 transmission_settings(dirty, Id, {struct, Fields}) ->
     #dirty_transmission_settings{id = Id,
-				 url = proplists:get_value(<<"url">>, Fields),
-				 auth = auth(proplists:get_value(<<"authentication">>))}.
+				 url = binary_to_list(proplists:get_value(<<"url">>, Fields)),
+				 auth = auth(proplists:get_value(<<"authentication">>, Fields))}.
 
 auth({struct, Fields}) ->
     case proplists:get_value(<<"type">>, Fields) of
-	"basic" ->
-	    #basic_auth{username = proplists:get_value(<<"username">>),
-			password = proplists:get_value(<<"password">>)};
-	"x-secret" ->
-	    #secret_auth{secret = proplists:get_Value(<<"secret">>)}
+	<<"basic">> ->
+	    #basic_auth{username = proplists:get_value(<<"username">>, Fields),
+			password = proplists:get_value(<<"password">>, Fields)};
+	<<"x-secret">> ->
+	    #secret_auth{secret = proplists:get_Value(<<"secret">>, Fields)}
     end.
 
 %%------------------------------------------------------------------------------
@@ -193,7 +193,7 @@ do_edit(_, _, _, #rest_transmission_settings{id=_, url=_, auth=_}) ->
 -spec(auth_header(Auth::auth()) -> string()).
 
 auth_header(#basic_auth{username=Username, password=Password}) ->
-    LoginPass = Username ++ ":" ++ Password,
+    LoginPass = binary_to_list(Username) ++ ":" ++ binary_to_list(Password),
     {"Authorization", "Basic " ++ binary_to_list(base64:encode(LoginPass))};
 
 auth_header(#secret_auth{secret=Secret}) ->
@@ -204,9 +204,11 @@ auth_header(#secret_auth{secret=Secret}) ->
 %% Get content.
 %%
 %%------------------------------------------------------------------------------
--spec(content(Id::integer()) -> {Title::integer(),
-				 Abstract::integer(),
-				 Body::integer()}).
+-spec(content(Id::integer()) -> {Title::string(),
+				 Abstract::string(),
+				 Body::string()}).
 
 content(_) ->
-    {<<"Foo document">>, <<"What is it about?">>, <<"Just nothing...">>}.
+    {<<"Foo document">>,
+     <<"What is it about?">>,
+     base64:encode(<<"Just nothing...">>)}.
