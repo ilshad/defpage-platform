@@ -80,7 +80,7 @@ transmissions(Id, Version) ->
 transmission_entry({struct, Fields}) ->
      {proplists:get_value(<<"hostdoc_id">>, Fields),
       proplists:get_value(<<"version">>, Fields),
-      transmission_settings(list_to_atom(proplists:get_value(<<"type">>, Fields)),
+      transmission_settings(list_to_atom(binary_to_list(proplists:get_value(<<"type">>, Fields))),
 			    proplists:get_value(<<"id">>, Fields),
 			    proplists:get_value(<<"params">>, Fields))}.
 
