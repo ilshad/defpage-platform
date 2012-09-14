@@ -148,12 +148,13 @@ do_create(Id, Version, #rest_transmission_settings{id=TransmissionId, url=Url, a
 	       [auth_header(Auth)],
 	       "application/json",
 	       iolist_to_binary(mochijson2:encode(Fields))},
+
     case httpc:request(post, Request, [], []) of
-	{ok, {{_, 201, _}, _, Body}} ->
-	    {struct, Res} = mochijson2:decode(Body),
+	{ok, {{_, 201, _}, _, ResponseBody}} ->
+	    {struct, Res} = mochijson2:decode(ResponseBody),
 	    HostDocId = proplists:get_value(<<"id">>, Res),
 	    save_create(Id, Version, TransmissionId, HostDocId);
-	_ ->
+	_Res ->
 	    error
     end.
 
@@ -169,7 +170,7 @@ save_create(DocId, Version, TransmissionId, HostDocId) ->
 	       iolist_to_binary(mochijson2:encode(Fields))},
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} -> ok;
-	_ -> error
+	_Res -> error
     end.
 
 %%------------------------------------------------------------------------------
