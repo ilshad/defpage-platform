@@ -117,17 +117,21 @@ auth({struct, Fields}) ->
 			    }}) -> ok).
 
 process_transmission({Id, Version, {_, 0, TransmissionSettings}}) ->
+    io:format("Document [~p] is going to be created.~n", [Id]),
     do_create(Id, Version, TransmissionSettings);
 
 process_transmission({Id, Version, {HostDocId, TransmissionVersion, TransmissionSettings}})
   when TransmissionVersion < Version ->
+    io:format("Document [~p] is going to be modified from version ~p to version ~p.~n", [Id, TransmissionVersion, Version]),
     do_edit(Id, Version, HostDocId, TransmissionSettings);
 
 process_transmission({_, Version, {_, TransmissionVersion, _}})
   when TransmissionVersion == Version ->
+    io:format("Document [~p] was tried to modify, but its version (~p) is actual. So modify is not required yet.", [Id. Version]),
     ok;
 
 process_transmission(_) ->
+    io:format("Some ERROR!!!"),    
     error.
 
 %%------------------------------------------------------------------------------
@@ -140,7 +144,7 @@ process_transmission(_) ->
 		TransmissionSettings::transmission_settings()) -> ok).
 
 do_create(Id, Version, #rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth}) ->
-    {Title, Abstract, Body} = content(Id),
+    {Title, Abstract, Body} = content(create, Id),
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"abstract">>, Abstract},
 		       {<<"body">>, Body}]},
@@ -169,8 +173,12 @@ save_create(DocId, Version, TransmissionId, HostDocId) ->
 	       "application/json",
 	       iolist_to_binary(mochijson2:encode(Fields))},
     case httpc:request(post, Request, [], []) of
-	{ok, {{_, 204, _}, _, _}} -> ok;
-	_Res -> error
+	{ok, {{_, 204, _}, _, _}} ->
+	    io:format("Document [~p] created and we was remember that. Host doc id: [~s].~n", [DocId, HostDocId]),
+	    ok;
+	_Res ->
+	    io:format("Some ERROR occured during action of rememebr created document [~p].~n", [DocId]),
+	    error
     end.
 
 %%------------------------------------------------------------------------------
@@ -183,8 +191,38 @@ save_create(DocId, Version, TransmissionId, HostDocId) ->
 	      HostDocId::string(),
 	      TransmissionSettings::transmission_settings()) -> ok).
 
-do_edit(_, _, _, #rest_transmission_settings{id=_, url=_, auth=_}) ->
-    ok.
+do_edit(Id, Version, HostDocId,
+	#rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth}) ->
+    {Title, Abstract, Body} = content(edit, Id),
+    Fields = {struct, [{<<"title">>, Title},
+		       {<<"abstract">>, Abstract},
+		       {<<"body">>, Body}]},
+    Request = {Url ++ "/" ++ HostDocId,
+	       [auth_header(Auth)],
+	       "application/json",
+	       iolist_to_binary(mochijson2:encode(Fields))},
+    case httpc:request(put, Request, [], []) of
+	{ok, {{_, 204, _}, _, _}} -> save_edit(Id, Version, TransmissionId);
+	_Res -> error
+    end.
+
+%% save info in metadata server
+save_edit(DocId, Version, TransmissionId) ->
+    Fields = {struct, [{<<"modified">>, 0},
+		       {<<"version">>, Version}]},
+    Request = {?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions/"
+	       ++ integer_to_list(TransmissionId),
+	       [?META_AUTH],
+	       "application/json",
+	       iolist_to_binary(mochijson2:encode(Fields))},
+    case httpc:request(post, Request, [], []) of
+	{ok, {{_, 204, _}, _, _}} ->
+	    io:format("Document [~p] modified and we was remember that.~n", [DocId]),
+	    ok;
+	_Res ->
+	    io:format("Some ERROR occured during action of rememebr modifed document [~p].~n", [DocId]),
+	    error
+    end.
 
 %%------------------------------------------------------------------------------
 %%
@@ -205,11 +243,16 @@ auth_header(#secret_auth{secret=Secret}) ->
 %% Get content.
 %%
 %%------------------------------------------------------------------------------
--spec(content(Id::integer()) -> {Title::string(),
+-spec(content(atom(), Id::integer()) -> {Title::string(),
 				 Abstract::string(),
 				 Body::string()}).
 
-content(_) ->
-    {<<"Foo document">>,
-     <<"What is it about?">>,
-     base64:encode(<<"Just nothing...">>)}.
+content(create, _) ->
+    {<<"First created test document">>,
+     <<"This is absract from first created document">>,
+     base64:encode(<<"This is body od first created document.">>)};
+
+content(edit, _) ->
+    {<<"Modified document">>,
+     <<"This is modified abstract">>,
+     base64:encode(<<"The body of this document was modified!">>)}.
