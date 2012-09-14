@@ -125,9 +125,9 @@ process_transmission({Id, Version, {HostDocId, TransmissionVersion, Transmission
     io:format("Document [~p] is going to be modified from version ~p to version ~p.~n", [Id, TransmissionVersion, Version]),
     do_edit(Id, Version, HostDocId, TransmissionSettings);
 
-process_transmission({_, Version, {_, TransmissionVersion, _}})
+process_transmission({Id, Version, {_, TransmissionVersion, _}})
   when TransmissionVersion == Version ->
-    io:format("Document [~p] was tried to modify, but its version (~p) is actual. So modify is not required yet.", [Id. Version]),
+    io:format("Document [~p] was tried to modify, but its version (~p) is actual. So modify is not required yet.", [Id, Version]),
     ok;
 
 process_transmission(_) ->
@@ -174,7 +174,7 @@ save_create(DocId, Version, TransmissionId, HostDocId) ->
 	       iolist_to_binary(mochijson2:encode(Fields))},
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->
-	    io:format("Document [~p] created and we was remember that. Host doc id: [~s].~n", [DocId, HostDocId]),
+	    io:format("Document [~p] created and we was remember that. Host doc id: [~p].~n", [DocId, HostDocId]),
 	    ok;
 	_Res ->
 	    io:format("Some ERROR occured during action of rememebr created document [~p].~n", [DocId]),
@@ -197,13 +197,17 @@ do_edit(Id, Version, HostDocId,
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"abstract">>, Abstract},
 		       {<<"body">>, Body}]},
-    Request = {Url ++ "/" ++ HostDocId,
+    Request = {Url ++ "/" ++ binary_to_list(HostDocId),
 	       [auth_header(Auth)],
 	       "application/json",
 	       iolist_to_binary(mochijson2:encode(Fields))},
     case httpc:request(put, Request, [], []) of
-	{ok, {{_, 204, _}, _, _}} -> save_edit(Id, Version, TransmissionId);
-	_Res -> error
+	{ok, {{_, 204, _}, _, _}} ->
+	    io:format("PUT request to the host. 204 response. Document id [~p].~n", [Id]),
+	    save_edit(Id, Version, TransmissionId);
+	_Res ->
+	    io:format("Transmission ERROR: PUT request to the host. Document id [~p].~n", [Id]),
+	    error
     end.
 
 %% save info in metadata server
@@ -215,7 +219,7 @@ save_edit(DocId, Version, TransmissionId) ->
 	       [?META_AUTH],
 	       "application/json",
 	       iolist_to_binary(mochijson2:encode(Fields))},
-    case httpc:request(post, Request, [], []) of
+    case httpc:request(put, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->
 	    io:format("Document [~p] modified and we was remember that.~n", [DocId]),
 	    ok;
@@ -244,8 +248,8 @@ auth_header(#secret_auth{secret=Secret}) ->
 %%
 %%------------------------------------------------------------------------------
 -spec(content(atom(), Id::integer()) -> {Title::string(),
-				 Abstract::string(),
-				 Body::string()}).
+					 Abstract::string(),
+					 Body::string()}).
 
 content(create, _) ->
     {<<"First created test document">>,
