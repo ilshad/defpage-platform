@@ -6,7 +6,7 @@
 -export([]).
 
 %% testing
--export([update_document/1, do_delete/3]).
+-export([update_document/1, delete_entry/2, debug_del/2]).
 
 -include("platform.hrl").
 
@@ -80,19 +80,22 @@ transmissions(DocId, Version) ->
 transmission_entry({struct, Fields}) ->
      {proplists:get_value(<<"hostdoc_id">>, Fields),
       proplists:get_value(<<"version">>, Fields),
-      transmission_settings(list_to_atom(binary_to_list(proplists:get_value(<<"type">>, Fields))),
+      transmission_settings(list_to_atom(binary_to_list(
+					   proplists:get_value(<<"type">>, Fields))),
 			    proplists:get_value(<<"id">>, Fields),
 			    proplists:get_value(<<"params">>, Fields))}.
 
-transmission_settings(rest, TransmissionId, {struct, Fields}) ->
-    #rest_transmission_settings{id = TransmissionId,
-				url = binary_to_list(proplists:get_value(<<"url">>, Fields)),
-				auth = auth(proplists:get_value(<<"authentication">>, Fields))};
+transmission_settings(rest, TrId, {struct, Fields}) ->
+    #rest_transmission_settings{
+		       id = TrId,
+		       url = binary_to_list(proplists:get_value(<<"url">>, Fields)),
+		       auth = auth(proplists:get_value(<<"authentication">>, Fields))};
 
-transmission_settings(dirty, TransmissionId, {struct, Fields}) ->
-    #dirty_transmission_settings{id = TransmissionId,
-				 url = binary_to_list(proplists:get_value(<<"url">>, Fields)),
-				 auth = auth(proplists:get_value(<<"authentication">>, Fields))}.
+transmission_settings(dirty, TrId, {struct, Fields}) ->
+    #dirty_transmission_settings{
+		       id = TrId,
+		       url = binary_to_list(proplists:get_value(<<"url">>, Fields)),
+		       auth = auth(proplists:get_value(<<"authentication">>, Fields))}.
 
 auth({struct, Fields}) ->
     case proplists:get_value(<<"type">>, Fields) of
@@ -112,22 +115,24 @@ auth({struct, Fields}) ->
 -spec(process_transmission({DocId::integer(),
 			    Version::integer(),
 			    {HostDocId::string(),
-			     TransmissionVersion::integer(),
-			     TransmissionSettings::transmission_settings()
+			     TrVersion::integer(),
+			     TrSettings::transmission_settings()
 			    }}) -> ok).
 
-process_transmission({DocId, Version, {_, 0, TransmissionSettings}}) ->
+process_transmission({DocId, Version, {_, 0, TrSettings}}) ->
     io:format("Document [~p] is going to be created.~n", [DocId]),
-    do_create(DocId, Version, TransmissionSettings);
+    do_create(DocId, Version, TrSettings);
 
-process_transmission({DocId, Version, {HostDocId, TransmissionVersion, TransmissionSettings}})
-  when TransmissionVersion < Version ->
-    io:format("Document [~p] is going to be modified from version ~p to version ~p.~n", [DocId, TransmissionVersion, Version]),
-    do_edit(DocId, Version, HostDocId, TransmissionSettings);
+process_transmission({DocId, Version, {HostDocId, TrVersion, TrSettings}})
+  when TrVersion < Version ->
+    io:format("Document [~p] is going to be modified from version ~p"
+              " to version ~p.~n", [DocId, TrVersion, Version]),
+    do_edit(DocId, Version, HostDocId, TrSettings);
 
-process_transmission({DocId, Version, {_, TransmissionVersion, _}})
-  when TransmissionVersion == Version ->
-    io:format("Document [~p] was tried to modify, but its version (~p) is actual. So modify is not required yet.~n", [DocId, Version]),
+process_transmission({DocId, Version, {_, TrVersion, _}})
+  when TrVersion == Version ->
+    io:format("Document [~p] was tried to modify, but its version (~p)"
+              " is actual. So modify is not required yet.~n", [DocId, Version]),
     ok;
 
 process_transmission(_) ->
@@ -141,9 +146,9 @@ process_transmission(_) ->
 %%------------------------------------------------------------------------------
 -spec(do_create(DocId::integer(),
 		Version::integer(),
-		TransmissionSettings::transmission_settings()) -> ok).
+		TrSettings::transmission_settings()) -> ok).
 
-do_create(DocId, Version, #rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth}) ->
+do_create(DocId, Version, #rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
     {Title, Abstract, Body} = content(create, DocId),
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"abstract">>, Abstract},
@@ -155,16 +160,18 @@ do_create(DocId, Version, #rest_transmission_settings{id=TransmissionId, url=Url
 
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 201, _}, _, ResponseBody}} ->
+	    io:format("POST request to the host. 201 response."
+		      " Document id [~p].~n", [DocId]),
 	    {struct, Res} = mochijson2:decode(ResponseBody),
 	    HostDocId = proplists:get_value(<<"id">>, Res),
-	    save_create(DocId, Version, TransmissionId, HostDocId);
+	    save_create(DocId, Version, TrId, HostDocId);
 	_Res ->
 	    error
     end.
 
 %% save info in metadata server
-save_create(DocId, Version, TransmissionId, HostDocId) ->
-    Fields = {struct, [{<<"transmission_id">>, TransmissionId},
+save_create(DocId, Version, TrId, HostDocId) ->
+    Fields = {struct, [{<<"transmission_id">>, TrId},
 		       {<<"hostdoc_id">>, HostDocId},
 		       {<<"created">>, 0},
 		       {<<"version">>, Version}]},
@@ -174,10 +181,12 @@ save_create(DocId, Version, TransmissionId, HostDocId) ->
 	       iolist_to_binary(mochijson2:encode(Fields))},
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->
-	    io:format("Document [~p] created and we was remember that. Host doc id: [~p].~n", [DocId, HostDocId]),
+	    io:format("Document [~p] created and we was remember that."
+		      " Host doc id: [~p].~n", [DocId, HostDocId]),
 	    ok;
 	_Res ->
-	    io:format("Some ERROR occured during action of rememebr created document [~p].~n", [DocId]),
+	    io:format("Some ERROR occured during action of rememebr"
+		      " created document [~p].~n", [DocId]),
 	    error
     end.
 
@@ -189,10 +198,10 @@ save_create(DocId, Version, TransmissionId, HostDocId) ->
 -spec(do_edit(DocId::integer(),
 	      Version::integer(),
 	      HostDocId::string(),
-	      TransmissionSettings::transmission_settings()) -> ok).
+	      TrSettings::transmission_settings()) -> ok).
 
 do_edit(DocId, Version, HostDocId,
-	#rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth}) ->
+	#rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
     {Title, Abstract, Body} = content(edit, DocId),
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"abstract">>, Abstract},
@@ -203,19 +212,21 @@ do_edit(DocId, Version, HostDocId,
 	       iolist_to_binary(mochijson2:encode(Fields))},
     case httpc:request(put, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->
-	    io:format("PUT request to the host. 204 response. Document id [~p].~n", [DocId]),
-	    save_edit(DocId, Version, TransmissionId);
+	    io:format("PUT request to the host. 204 response."
+		      " Document id [~p].~n", [DocId]),
+	    save_edit(DocId, Version, TrId);
 	_Res ->
-	    io:format("Transmission ERROR: PUT request to the host. Document id [~p].~n", [DocId]),
+	    io:format("Transmission ERROR: PUT request to the host."
+		      " Document id [~p].~n", [DocId]),
 	    error
     end.
 
 %% save info in metadata server
-save_edit(DocId, Version, TransmissionId) ->
+save_edit(DocId, Version, TrId) ->
     Fields = {struct, [{<<"modified">>, 0},
 		       {<<"version">>, Version}]},
     Request = {?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions/"
-	       ++ integer_to_list(TransmissionId),
+	       ++ integer_to_list(TrId),
 	       [?META_AUTH],
 	       "application/json",
 	       iolist_to_binary(mochijson2:encode(Fields))},
@@ -224,7 +235,8 @@ save_edit(DocId, Version, TransmissionId) ->
 	    io:format("Document [~p] modified and we was remember that.~n", [DocId]),
 	    ok;
 	_Res ->
-	    io:format("Some ERROR occured during action of rememebr modifed document [~p].~n", [DocId]),
+	    io:format("Some ERROR occured during action of rememebr"
+		      " modifed document [~p].~n", [DocId]),
 	    error
     end.
 
@@ -233,29 +245,48 @@ save_edit(DocId, Version, TransmissionId) ->
 %% Delete document from the host.
 %%
 %%------------------------------------------------------------------------------
--spec(do_delete(DocId::integer(), HosDocId::string(), TransmissionSettings::transmission_settings()) -> ok).
+-spec(delete_entry(DocId::integer(), TrId::integer()) -> ok).
 
-do_delete(DocId, HostDocId, #rest_transmission_settings{id=TransmissionId, url=Url, auth=Auth}) ->
+debug_del(A, B) -> delete_entry(A, B).
+
+delete_entry(DocId, TrId) ->
+    Url = ?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++
+	"/transmissions/" ++ integer_to_list(TrId),
+    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
+	{ok, {{_, 200, _}, _, Body}} ->
+	    {HostDocId, _, Settings} = transmission_entry(mochijson2:decode(Body)),
+	    do_delete(DocId, HostDocId, Settings);
+	_Res ->
+	    error
+    end.
+
+-spec(do_delete(DocId::integer(), HostDocId::string(), transmission_settings()) -> ok).
+
+do_delete(DocId, HostDocId, #rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
     Request = {Url ++ "/" ++ binary_to_list(HostDocId), [auth_header(Auth)]},
     case httpc:request(delete, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->
 	    io:format("Document [~p] has been removed from the host.~n", [DocId]),
-	    save_delete(DocId, TransmissionId);
+	    save_delete(DocId, TrId);
 	_Res ->
-	    io:format("Transmission ERROR: DELETE request for document [~p], transmission [~p] has been failed.~n", [DocId, TransmissionId]),
+	    io:format("Transmission ERROR: DELETE request for document [~p],"
+		      " transmission [~p] has been failed.~n", [DocId, TrId]),
 	    error
     end.
 
-save_delete(DocId, TransmissionId) ->
+save_delete(DocId, TrId) ->
     Request = {?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions"
-	       ++ integer_to_list(TransmissionId),
+	       ++ integer_to_list(TrId),
 	       [?META_AUTH]},
     case httpc:request(delete, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->	
-	    io:format("Document [~p] with transmission [~p] was dropped succefuly.~n", [DocId, TransmissionId]),
+	    io:format("Document [~p] with transmission [~p] was dropped"
+		      " succefuly.~n", [DocId, TrId]),
 	    ok;
 	_Res ->
-	    io:format("Document [~p] and transmission [~p] was dropped on the host but some problems occured when trying rememebr that.~n", [DocId, TransmissionId]),
+	    io:format("Document [~p] and transmission [~p] was dropped on the"
+		      " host but some problems occured when trying rememebr that.~n",
+		      [DocId, TrId]),
 	    error
     end.
 
