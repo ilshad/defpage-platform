@@ -6,7 +6,7 @@
 -export([]).
 
 %% testing
--export([update_document/1, delete_entry/2, debug_del/2]).
+-export([update_document/1, delete_entry/2]).
 
 -include("platform.hrl").
 
@@ -160,7 +160,7 @@ do_create(DocId, Version, #rest_transmission_settings{id=TrId, url=Url, auth=Aut
 
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 201, _}, _, ResponseBody}} ->
-	    io:format("POST request to the host. 201 response."
+	    io:format(":: HTTP POST :: request to the host -> 201 response."
 		      " Document id [~p].~n", [DocId]),
 	    {struct, Res} = mochijson2:decode(ResponseBody),
 	    HostDocId = proplists:get_value(<<"id">>, Res),
@@ -212,7 +212,7 @@ do_edit(DocId, Version, HostDocId,
 	       iolist_to_binary(mochijson2:encode(Fields))},
     case httpc:request(put, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->
-	    io:format("PUT request to the host. 204 response."
+	    io:format(":: HTTP PUT :: request to the host -> 204 response."
 		      " Document id [~p].~n", [DocId]),
 	    save_edit(DocId, Version, TrId);
 	_Res ->
@@ -247,15 +247,19 @@ save_edit(DocId, Version, TrId) ->
 %%------------------------------------------------------------------------------
 -spec(delete_entry(DocId::integer(), TrId::integer()) -> ok).
 
-debug_del(A, B) -> delete_entry(A, B).
-
 delete_entry(DocId, TrId) ->
     Url = ?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++
 	"/transmissions/" ++ integer_to_list(TrId),
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
-	    {HostDocId, _, Settings} = transmission_entry(mochijson2:decode(Body)),
-	    do_delete(DocId, HostDocId, Settings);
+	    {struct, Fields} = mochijson2:decode(Body),
+	    HostDocId = proplists:get_value(<<"hostdoc_id">>, Fields),
+	    TrSettings = transmission_settings(
+			   list_to_atom(binary_to_list(
+					  proplists:get_value(<<"type">>, Fields))),
+			   TrId,
+			   proplists:get_value(<<"params">>, Fields)),
+	    do_delete(DocId, HostDocId, TrSettings);
 	_Res ->
 	    error
     end.
@@ -266,7 +270,8 @@ do_delete(DocId, HostDocId, #rest_transmission_settings{id=TrId, url=Url, auth=A
     Request = {Url ++ "/" ++ binary_to_list(HostDocId), [auth_header(Auth)]},
     case httpc:request(delete, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->
-	    io:format("Document [~p] has been removed from the host.~n", [DocId]),
+	    io:format(":: HTTP DELETE :: request to the host -> 204 response."
+		      " Document id [~p].~n", [DocId]),
 	    save_delete(DocId, TrId);
 	_Res ->
 	    io:format("Transmission ERROR: DELETE request for document [~p],"
@@ -275,7 +280,7 @@ do_delete(DocId, HostDocId, #rest_transmission_settings{id=TrId, url=Url, auth=A
     end.
 
 save_delete(DocId, TrId) ->
-    Request = {?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions"
+    Request = {?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions/"
 	       ++ integer_to_list(TrId),
 	       [?META_AUTH]},
     case httpc:request(delete, Request, [], []) of
