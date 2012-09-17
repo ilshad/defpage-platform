@@ -6,7 +6,7 @@
 -export([]).
 
 %% testing
--export([update_document/1, delete_entry/2, delete_document/1]).
+-export([update_document/1, delete_entry/2]).
 
 -include("platform.hrl").
 
@@ -34,7 +34,7 @@
 -spec(update_document(Id::integer()) -> ok).
 
 update_document(Id) ->
-    walk(transmissions(Id, version(Id))).
+    walk(compose(Id, version(Id), transmissions(Id))).
 
 walk([ H | T ]) ->
     process_transmission(H),
@@ -65,14 +65,13 @@ version(DocId) ->
 %% Ask metadata server for all transmissions of taken document.
 %%
 %%------------------------------------------------------------------------------
--spec(transmissions(DocId::integer(), Version::integer() | error) -> list()).
+-spec(transmissions(DocId::integer()) -> list()).
 
-transmissions(_, error) -> [];
-transmissions(DocId, Version) ->
+transmissions(DocId) ->
     Url = ?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions/",
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
-	    [{DocId, Version, transmission_entry(X)} || X <- mochijson2:decode(Body)];
+	    [transmission_entry(X) || X <- mochijson2:decode(Body)];
 	_ ->
 	    []
     end.
@@ -245,12 +244,12 @@ save_edit(DocId, Version, TrId) ->
 %% Delete document from the host.
 %%
 %%------------------------------------------------------------------------------
--spec(delete_document(Id::integer()) -> ok).
-
-delete_document(Id) ->
-    Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id) ++ "/transmissions/",
-    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
-	{ok, {{_, 200, _}, _, Body}} ->
+%-spec(delete_document(Id::integer()) -> ok).
+%
+%delete_document(Id) ->
+%    Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id) ++ "/transmissions/",
+%    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
+%	{ok, {{_, 200, _}, _, Body}} ->
 	    
 
 
@@ -334,3 +333,13 @@ content(edit, _) ->
     {<<"Modified document">>,
      <<"This is modified abstract">>,
      base64:encode(<<"The body of this document was modified!">>)}.
+
+%%------------------------------------------------------------------------------
+%%
+%% Utils
+%%
+%%------------------------------------------------------------------------------
+
+compose(DocId, Version, Sequence) ->
+    [{DocId, Version, X} || X <- Sequence].
+
