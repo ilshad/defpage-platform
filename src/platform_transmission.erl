@@ -6,7 +6,7 @@
 -export([]).
 
 %% testing
--export([update_document/1, delete_entry/2]).
+-export([update_document/1, delete_document/1, delete_entry/2]).
 
 -include("platform.hrl").
 
@@ -246,14 +246,16 @@ save_edit(DocId, Version, TrId) ->
 %% Delete document from the host.
 %%
 %%------------------------------------------------------------------------------
-%-spec(delete_document(Id::integer()) -> ok).
-%
-%delete_document(Id) ->
-%    Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id) ++ "/transmissions/",
-%    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
-%	{ok, {{_, 200, _}, _, Body}} ->
-	    
+-spec(delete_document(Id::integer()) -> ok).
 
+delete_document([{Id, HostDocId, Settings} | T]) ->
+    do_delete(Id, HostDocId, Settings),
+    delete_document(T);
+delete_document([]) ->
+    ok;
+delete_document(Id) ->
+    delete_document(
+      [{Id, HostDocId, Settings} || {HostDocId, _, Settings} <- transmissions(Id)]).
 
 -spec(delete_entry(DocId::integer(), TrId::integer()) -> ok).
 
