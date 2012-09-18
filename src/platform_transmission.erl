@@ -34,14 +34,9 @@
 -spec(update_document(Id::integer()) -> ok).
 
 update_document(Id) ->
-    walk(compose(Id, version(Id), transmissions(Id))).
-
-walk([ H | T ]) ->
-    process_transmission(H),
-    walk(T);
-
-walk([]) ->
-    ok.
+    Version = version(Id),
+    All = [{Id, Version, Entry} || Entry <- transmissions(Id)],
+    process_transmission(All).
 
 %%------------------------------------------------------------------------------
 %%
@@ -117,6 +112,13 @@ auth({struct, Fields}) ->
 			     TrVersion::integer(),
 			     TrSettings::transmission_settings()
 			    }}) -> ok).
+
+process_transmission([ H | T ]) ->
+    process_transmission(H),
+    process_transmission(T);
+
+process_transmission([]) ->
+    ok;
 
 process_transmission({DocId, Version, {_, 0, TrSettings}}) ->
     io:format("Document [~p] is going to be created.~n", [DocId]),
@@ -333,13 +335,3 @@ content(edit, _) ->
     {<<"Modified document">>,
      <<"This is modified abstract">>,
      base64:encode(<<"The body of this document was modified!">>)}.
-
-%%------------------------------------------------------------------------------
-%%
-%% Utils
-%%
-%%------------------------------------------------------------------------------
-
-compose(DocId, Version, Sequence) ->
-    [{DocId, Version, X} || X <- Sequence].
-
