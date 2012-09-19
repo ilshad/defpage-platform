@@ -6,7 +6,7 @@
 -export([sync/1]).
 
 %% testing
--export([get_meta/1, get_sources/2, get_metadocs/1]).
+-export([]).
 
 -include("platform.hrl").
 
@@ -22,20 +22,16 @@
 
 %%------------------------------------------------------------------------------
 %%
-%% Run sync process.
+%% Run sync process by goven collection ID.
 %%
 %%------------------------------------------------------------------------------
 -spec(sync(Id::integer()) -> term()).
 
-sync(CollectionId) ->
-    case get_meta(CollectionId) of
-	{error, not_found} -> ok;
-	{error, undefined} -> error;
-	{SourceType, MetaDocs} ->
-	    SourceDocs = get_sources(SourceType, CollectionId),
-	    Fun = get_fun_update(SourceType, CollectionId, MetaDocs),
-	    lists:foreach(Fun, SourceDocs)
-    end.
+sync(Id) ->
+    {SourceType, MetaDocs} = get_meta(Id),
+    SourceDocs = get_sources(SourceType, Id),
+    lists:foreach(get_fun_delete(SourceDocs), MetaDocs),
+    lists:foreach(get_fun_update(SourceType, Id, MetaDocs), SourceDocs).
 
 %%------------------------------------------------------------------------------
 %%
@@ -54,13 +50,12 @@ get_meta(CollectionId) ->
 	_ -> {error, undefined}
     end.
 
-%%------------------------------------------------------------------------------
-%%
-%% Return list of documents info from metadata server for given
-%% collection id.
-%%
-%%------------------------------------------------------------------------------
--spec(get_metadocs(CollectionId::integer()) -> MetaDocs::list()).
+source_type(Fields) ->
+    {struct, Source} = proplists:get_value(<<"source">>, Fields),
+    case proplists:get_value(<<"type">>, Source) of
+	<<"gd">> -> gd;
+	_ -> error
+    end.
 
 get_metadocs(CollectionId) ->
     Url = ?META_URL ++ "/collections/" ++ integer_to_list(CollectionId) ++ "/documents/",
@@ -71,19 +66,13 @@ get_metadocs(CollectionId) ->
 	_ -> {error, undefined}
     end.
 
-%%------------------------------------------------------------------------------
-%%
-%% Extract source type for collection. Assume alone.
-%%
-%%------------------------------------------------------------------------------
--spec(source_type(Fields::[tuple()]) -> source_type()).
-
-source_type(Fields) ->
+meta_doc({struct, Fields}) ->
     {struct, Source} = proplists:get_value(<<"source">>, Fields),
-    case proplists:get_value(<<"type">>, Source) of
-	<<"gd">> -> gd;
-	_ -> error
-    end.
+    {proplists:get_value(<<"id">>, Source),
+     #meta_doc{meta_id = proplists:get_value(<<"id">>, Fields),
+	       source_type = proplists:get_value(<<"type">>, Source),
+	       title = proplists:get_value(<<"title">>, Fields),
+	       modified = proplists:get_value(<<"modified">>, Fields)}}.
 
 %%------------------------------------------------------------------------------
 %%
@@ -103,30 +92,36 @@ get_sources(gd, CollectionId) ->
 	    [error_get_source]
     end.
 
-%%------------------------------------------------------------------------------
-%%
-%% Create property with record #meta_doc{} from json structure
-%%
-%%------------------------------------------------------------------------------
-meta_doc({struct, Fields}) ->
-    {struct, Source} = proplists:get_value(<<"source">>, Fields),
-    {proplists:get_value(<<"id">>, Source),
-     #meta_doc{meta_id = proplists:get_value(<<"id">>, Fields),
-	       source_type = proplists:get_value(<<"type">>, Source),
-	       title = proplists:get_value(<<"title">>, Fields),
-	       modified = proplists:get_value(<<"modified">>, Fields)}}.
-
-%%------------------------------------------------------------------------------
-%%
-%% Create property with record #source_doc{} from json structure
-%%
-%%------------------------------------------------------------------------------
 source_doc({struct, Fields}) ->
     {proplists:get_value(<<"id">>, Fields),
      #source_doc{title = proplists:get_value(<<"title">>, Fields),
 		 modified = rfc3339:parse_epoch(
 			      binary_to_list(
 				proplists:get_value(<<"modified">>, Fields)))}}.
+
+%%------------------------------------------------------------------------------
+%%
+%% Return function wich is removing document entirely from all specified hosts
+%% if there is no corresponding source doc now.
+%%
+%%------------------------------------------------------------------------------
+-spec(get_fun_delete(SourceDocs::list()) -> function()).
+
+get_fun_delete(SourceDocs) ->
+    fun ({SourceId, MetaDoc}) ->
+	    case proplists:get_value(SourceId, SourceDocs) of
+		{souce_doc, _, _} -> ok;
+		undefined ->
+		    Id = MetaDoc#meta_doc.meta_id,
+		    platform_transmission:delete_document(Id),
+		    Url = ?META_URL ++ "/documents/" ++ integer_to_list(Id),
+		    case httpc:request(delete, {Url, [?META_AUTH]}, [], []) of
+			{ok, {{_, 204, _}, _, _}} -> ok;
+			{ok, {{_, 404, _}, _, _}} -> {error, not_found};
+			_ -> {error, undefined}
+		    end
+	    end
+    end.
 
 %%------------------------------------------------------------------------------
 %%

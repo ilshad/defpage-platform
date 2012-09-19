@@ -257,27 +257,6 @@ delete_document(Id) ->
     delete_document(
       [{Id, HostDocId, Settings} || {HostDocId, _, Settings} <- transmissions(Id)]).
 
--spec(delete_entry(DocId::integer(), TrId::integer()) -> ok).
-
-delete_entry(DocId, TrId) ->
-    Url = ?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++
-	"/transmissions/" ++ integer_to_list(TrId),
-    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
-	{ok, {{_, 200, _}, _, Body}} ->
-	    {struct, Fields} = mochijson2:decode(Body),
-	    HostDocId = proplists:get_value(<<"hostdoc_id">>, Fields),
-	    TrSettings = transmission_settings(
-			   list_to_atom(binary_to_list(
-					  proplists:get_value(<<"type">>, Fields))),
-			   TrId,
-			   proplists:get_value(<<"params">>, Fields)),
-	    do_delete(DocId, HostDocId, TrSettings);
-	_Res ->
-	    error
-    end.
-
--spec(do_delete(DocId::integer(), HostDocId::string(), transmission_settings()) -> ok).
-
 do_delete(DocId, HostDocId, #rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
     Request = {Url ++ "/" ++ binary_to_list(HostDocId), [auth_header(Auth)]},
     case httpc:request(delete, Request, [], []) of
@@ -304,6 +283,30 @@ save_delete(DocId, TrId) ->
 	    io:format("Document [~p] and transmission [~p] was dropped on the"
 		      " host but some problems occured when trying rememebr that.~n",
 		      [DocId, TrId]),
+	    error
+    end.
+
+%%------------------------------------------------------------------------------
+%%
+%% Delete specified entry only.
+%%
+%%------------------------------------------------------------------------------
+-spec(delete_entry(DocId::integer(), TrId::integer()) -> ok).
+
+delete_entry(DocId, TrId) ->
+    Url = ?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++
+	"/transmissions/" ++ integer_to_list(TrId),
+    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
+	{ok, {{_, 200, _}, _, Body}} ->
+	    {struct, Fields} = mochijson2:decode(Body),
+	    HostDocId = proplists:get_value(<<"hostdoc_id">>, Fields),
+	    TrSettings = transmission_settings(
+			   list_to_atom(binary_to_list(
+					  proplists:get_value(<<"type">>, Fields))),
+			   TrId,
+			   proplists:get_value(<<"params">>, Fields)),
+	    do_delete(DocId, HostDocId, TrSettings);
+	_Res ->
 	    error
     end.
 
