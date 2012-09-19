@@ -3,10 +3,10 @@
 -module(platform_transmission).
 
 %% API
--export([]).
+-export([delete_document/1]).
 
 %% testing
--export([update_document/1, delete_document/1, delete_entry/2]).
+-export([update_document/1, delete_entry/2]).
 
 -include("platform.hrl").
 
@@ -340,3 +340,27 @@ content(edit, _) ->
     {<<"Modified document">>,
      <<"This is modified abstract">>,
      base64:encode(<<"The body of this document was modified!">>)}.
+
+%%------------------------------------------------------------------------------
+%%
+%% Update (create / edit) all entries / documents for given collection.
+%%
+%%------------------------------------------------------------------------------
+-spec(update_collection(Id::integer()) -> ok).
+
+update_collection(Id) ->
+    TrS = collection_transmissions(Id),
+    MetaDocs = platform_source:get_metadocs(Id),
+    
+
+collection_transmissions(Id) ->
+    Url = ?META_URL ++ "/collections/" ++ integer_to_list(Id) ++ "/transmissions/",
+    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
+	{ok, {{_, 200, _}, _, Body}} ->
+	    [transmission_settings(proplists:get_value(<<"type">>, X),
+				   proplists:get_value(<<"id">>, X),
+				   proplists:get_value(<<"params">>, X))
+	     || X <- mochijson2:decode(Body1)];
+	_Res ->
+	    error
+    end.
