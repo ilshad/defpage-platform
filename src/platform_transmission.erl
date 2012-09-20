@@ -3,10 +3,10 @@
 -module(platform_transmission).
 
 %% API
--export([delete_document/1]).
+-export([delete_document/1, update_collection/1, update_document/1]).
 
 %% testing
--export([update_document/1, delete_entry/2]).
+-export([delete_entry/2]).
 
 -include("platform.hrl").
 
@@ -113,13 +113,6 @@ auth({struct, Fields}) ->
 			     TrSettings::transmission_settings()
 			    }}) -> ok).
 
-process_transmission([ H | T ]) ->
-    process_transmission(H),
-    process_transmission(T);
-
-process_transmission([]) ->
-    ok;
-
 process_transmission({DocId, Version, {_, 0, TrSettings}}) ->
     io:format("Document [~p] is going to be created.~n", [DocId]),
     do_create(DocId, Version, TrSettings);
@@ -134,6 +127,13 @@ process_transmission({DocId, Version, {_, TrVersion, _}})
   when TrVersion == Version ->
     io:format("Document [~p] was tried to modify, but its version (~p)"
               " is actual. So modify is not required yet.~n", [DocId, Version]),
+    ok;
+
+process_transmission([ H | T ]) ->
+    process_transmission(H),
+    process_transmission(T);
+
+process_transmission([]) ->
     ok;
 
 process_transmission(_) ->
@@ -349,18 +349,37 @@ content(edit, _) ->
 -spec(update_collection(Id::integer()) -> ok).
 
 update_collection(Id) ->
-    TrS = collection_transmissions(Id),
-    MetaDocs = platform_source:get_metadocs(Id),
-    
+    Docs = [{DocId, Version, transmissions(DocId)}
+	    || {DocId, Version} <- collection_docs(Id)],
+    lists:foreach(
+      fun (TrSettings) ->
+	      lists:foreach(
+		fun (Doc) ->
+			
+		end, Docs),
+      end, collection_transmissions(Id)).
 
 collection_transmissions(Id) ->
     Url = ?META_URL ++ "/collections/" ++ integer_to_list(Id) ++ "/transmissions/",
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
-	    [transmission_settings(proplists:get_value(<<"type">>, X),
+	    [transmission_settings(list_to_atom(
+				     binary_to_list(
+				       proplists:get_value(<<"type">>, X),
 				   proplists:get_value(<<"id">>, X),
 				   proplists:get_value(<<"params">>, X))
 	     || X <- mochijson2:decode(Body1)];
 	_Res ->
 	    error
+    end.
+
+collection_docs(Id) ->
+    Url = ?META_URL ++ "/collections/" ++ integer_to_list(Id) ++ "/documents/",
+    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
+	{ok, {{_, 200, _}, _, Body}} ->
+	    [{proplists:get_value(<<"id">>, X),
+	      proplists:get_value(<<"version">>, X)}
+	     || X <- mochijson2:decode(Body)];
+	_Res ->
+	    []
     end.
