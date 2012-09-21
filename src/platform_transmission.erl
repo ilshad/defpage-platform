@@ -349,15 +349,35 @@ content(edit, _) ->
 -spec(update_collection(Id::integer()) -> ok).
 
 update_collection(Id) ->
-    Docs = [{DocId, Version, transmissions(DocId)}
-	    || {DocId, Version} <- collection_docs(Id)],
-    lists:foreach(
-      fun (TrSettings) ->
-	      lists:foreach(
-		fun (Doc) ->
-			
-		end, Docs),
-      end, collection_transmissions(Id)).
+    update_collection(collection_transmissions(Id), collection_docs(Id)).
+
+update_collection([Settings | T ], Docs) ->
+    update_collection(Settings, Docs),
+    update_collection(T, Docs);
+
+update_collection(Settings, [Doc | T ]) ->
+    update_collection(Settings, Doc),
+    update_collection(Settings, T);
+
+update_collection(Settings, {DocId, Version, [Entry | T ]}) ->
+    update_collection(Settings, {DocId, Version, Entry}),
+    update_collection(Settings, {DocId, Version, T});
+
+update_collection(Settings, {DocId, Version, Entry}) ->
+    case is_same(Settings, Entry) of
+	true -> process_transmission({DocId, Version, Entry});
+	false -> ok
+    end;
+
+update_collection([], _) -> ok;
+update_collection(_, []) -> ok;
+update_collection(_, {_, _, []}) -> ok.
+
+is_same(#rest_transmission_settings{id=X1},
+	{_, _, #rest_transmission_settings{id=X2}}) -> X1 == X2;
+is_same(#dirty_transmission_settings{id=X1},
+	{_, _, #dirty_transmission_settings{id=X2}}) -> X1 == X2;
+is_same(_, _) -> false.
 
 collection_transmissions(Id) ->
     Url = ?META_URL ++ "/collections/" ++ integer_to_list(Id) ++ "/transmissions/",
@@ -365,20 +385,21 @@ collection_transmissions(Id) ->
 	{ok, {{_, 200, _}, _, Body}} ->
 	    [transmission_settings(list_to_atom(
 				     binary_to_list(
-				       proplists:get_value(<<"type">>, X),
+				       proplists:get_value(<<"type">>, X))),
 				   proplists:get_value(<<"id">>, X),
 				   proplists:get_value(<<"params">>, X))
-	     || X <- mochijson2:decode(Body1)];
+	     || X <- mochijson2:decode(Body)];
 	_Res ->
 	    error
     end.
-
+    
 collection_docs(Id) ->
     Url = ?META_URL ++ "/collections/" ++ integer_to_list(Id) ++ "/documents/",
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
 	{ok, {{_, 200, _}, _, Body}} ->
 	    [{proplists:get_value(<<"id">>, X),
-	      proplists:get_value(<<"version">>, X)}
+	      proplists:get_value(<<"version">>, X),
+	      transmissions(proplists:get_value(<<"id">>, X))}
 	     || X <- mochijson2:decode(Body)];
 	_Res ->
 	    []
