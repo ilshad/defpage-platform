@@ -6,14 +6,16 @@
 
 -spec(content(DocId::integer()) -> string()).
 
--define(SAMPLE, {"title...", "abstract...", "body..."}).
+-define(SAMPLE, {<<"title...">>, <<"abstract...">>, base64:encode(<<"body...">>)}).
 
 content(DocId) ->
     {SourceType, CollectionId, UID} = document(DocId),
     content(SourceType, CollectionId, UID).
 
 content(gd, CollectionId, UID) ->
-    Url = ?GD_URL ++ "/api/collection/" ++ CollectionIdr ++ "/documents/" ++ UID,
+    Url = ?GD_URL
+	++ "/api/collection/" ++ integer_to_list(CollectionId)
+	++ "/documents/" ++ UID,
     case httpc:request(Url) of
 	{ok, {{_, 200, _}, _, _Body}} ->
 	    ?SAMPLE;
@@ -32,7 +34,7 @@ document(DocId) ->
 
 	    {platform_source:source_type(Fields),
 	     proplists:get_value(<<"collection_id">>, Fields),
-	     proplists:get_value(<<"id">>, Source)};
+	     binary_to_list(proplists:get_value(<<"id">>, Source))};
 
 	_ -> error
     end.
