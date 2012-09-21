@@ -153,7 +153,7 @@ process_transmission(_) ->
 		TrSettings::transmission_settings()) -> ok).
 
 do_create(DocId, Version, #rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
-    {Title, Abstract, Body} = content(create, DocId),
+    {Title, Abstract, Body} = platform_content:content(DocId),
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"abstract">>, Abstract},
 		       {<<"body">>, Body}]},
@@ -206,7 +206,7 @@ save_create(DocId, Version, TrId, HostDocId) ->
 
 do_edit(DocId, Version, HostDocId,
 	#rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
-    {Title, Abstract, Body} = content(edit, DocId),
+    {Title, Abstract, Body} = platform_content:content(DocId),
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"abstract">>, Abstract},
 		       {<<"body">>, Body}]},
@@ -328,23 +328,6 @@ auth_header(#basic_auth{username=Username, password=Password}) ->
 
 auth_header(#secret_auth{secret=Secret}) ->
     {"X-Secret", Secret}.
-
-%%------------------------------------------------------------------------------
-%%
-%% Get content.
-%%
-%%------------------------------------------------------------------------------
--spec(content(atom(), DocId::integer()) -> {string(), string(), string()}).
-
-content(create, _) ->
-    {<<"First created test document">>,
-     <<"This is absract from first created document">>,
-     base64:encode(<<"This is body od first created document.">>)};
-
-content(edit, _) ->
-    {<<"Modified document">>,
-     <<"This is modified abstract">>,
-     base64:encode(<<"The body of this document was modified!">>)}.
 
 %%------------------------------------------------------------------------------
 %%

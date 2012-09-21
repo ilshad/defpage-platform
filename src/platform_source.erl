@@ -3,7 +3,7 @@
 -module(platform_source).
 
 %% API
--export([sync/1]).
+-export([sync/1, source_type/1]).
 
 %% testing
 -export([]).

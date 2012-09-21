@@ -1,0 +1,38 @@
+-module(platform_content).
+
+-export([content/1]).
+
+-include("platform.hrl").
+
+-spec(content(DocId::integer()) -> string()).
+
+-define(SAMPLE, {"title...", "abstract...", "body..."}).
+
+content(DocId) ->
+    {SourceType, CollectionId, UID} = document(DocId),
+    content(SourceType, CollectionId, UID).
+
+content(gd, CollectionId, UID) ->
+    Url = ?GD_URL ++ "/api/collection/" ++ CollectionIdr ++ "/documents/" ++ UID,
+    case httpc:request(Url) of
+	{ok, {{_, 200, _}, _, _Body}} ->
+	    ?SAMPLE;
+	{ok, {{_, 404, _}, _, _}} ->
+	    error_get_source;
+	_ ->
+	    error_get_source
+    end.
+
+document(DocId) ->
+    Url = ?META_URL ++ "/documents/" ++ integer_to_list(DocId),
+    case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
+	{ok, {{_, 200, _}, _, Body}} ->
+	    {struct, Fields} = mochijson2:decode(Body),
+	    {struct, Source} = proplists:get_value(<<"source">>, Fields),
+
+	    {platform_source:source_type(Fields),
+	     proplists:get_value(<<"collection_id">>, Fields),
+	     proplists:get_value(<<"id">>, Source)};
+
+	_ -> error
+    end.
