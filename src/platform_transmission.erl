@@ -3,10 +3,13 @@
 -module(platform_transmission).
 
 %% API
--export([delete_document/1, update_collection/1, update_document/1]).
+-export([update_collection/1,
+	 update_document/1,
+	 delete_document/1,
+	 delete_entry/2]).
 
 %% testing
--export([delete_entry/2]).
+-export([]).
 
 -include("platform.hrl").
 
@@ -174,7 +177,7 @@ do_create(DocId, Version, #rest_transmission_settings{id=TrId, url=Url, auth=Aut
 save_create(DocId, Version, TrId, HostDocId) ->
     Fields = {struct, [{<<"transmission_id">>, TrId},
 		       {<<"hostdoc_id">>, HostDocId},
-		       {<<"created">>, 0},
+		       {<<"created">>, rfc3339:epoch(calendar:universal_time())},
 		       {<<"version">>, Version}]},
     Request = {?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions/",
 	       [?META_AUTH],
@@ -224,7 +227,7 @@ do_edit(DocId, Version, HostDocId,
 
 %% save info in metadata server
 save_edit(DocId, Version, TrId) ->
-    Fields = {struct, [{<<"modified">>, 0},
+    Fields = {struct, [{<<"modified">>, rfc3339:epoch(calendar:universal_time())},
 		       {<<"version">>, Version}]},
     Request = {?META_URL ++ "/documents/" ++ integer_to_list(DocId) ++ "/transmissions/"
 	       ++ integer_to_list(TrId),
