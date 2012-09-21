@@ -110,7 +110,7 @@ source_doc({struct, Fields}) ->
 get_fun_delete(SourceDocs) ->
     fun ({SourceId, MetaDoc}) ->
 	    case proplists:get_value(SourceId, SourceDocs) of
-		{souce_doc, _, _} -> ok;
+		{source_doc, _, _} -> ok;
 		undefined ->
 		    Id = MetaDoc#meta_doc.meta_id,
 		    platform_transmission:delete_document(Id),
