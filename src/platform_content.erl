@@ -4,10 +4,6 @@
 
 -include("platform.hrl").
 
--spec(content(DocId::integer()) -> string()).
-
--define(SAMPLE, {<<"title...">>, <<"abstract...">>, base64:encode(<<"body...">>)}).
-
 content(DocId) ->
     {SourceType, CollectionId, UID} = document(DocId),
     content(SourceType, CollectionId, UID).
@@ -17,8 +13,11 @@ content(gd, CollectionId, UID) ->
 	++ "/api/collection/" ++ integer_to_list(CollectionId)
 	++ "/documents/" ++ UID,
     case httpc:request(Url) of
-	{ok, {{_, 200, _}, _, _Body}} ->
-	    ?SAMPLE;
+	{ok, {{_, 200, _}, _, Response}} ->
+	    {struct, Fields} = mochijson2:decode(Response),
+	    {<<"title...">>,
+	     <<"abstract...">>,
+	     proplists:get_value(<<"body">>, Fields)};
 	{ok, {{_, 404, _}, _, _}} ->
 	    error_get_source;
 	_ ->
@@ -38,3 +37,4 @@ document(DocId) ->
 
 	_ -> error
     end.
+    
