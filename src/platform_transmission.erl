@@ -388,7 +388,7 @@ collection_transmissions(Id) ->
 				       proplists:get_value(<<"type">>, X))),
 				   proplists:get_value(<<"id">>, X),
 				   proplists:get_value(<<"params">>, X))
-	     || X <- mochijson2:decode(Body)];
+	     || {struct, X} <- mochijson2:decode(Body)];
 	_Res ->
 	    error
     end.
@@ -400,7 +400,7 @@ collection_docs(Id) ->
 	    [{proplists:get_value(<<"id">>, X),
 	      proplists:get_value(<<"version">>, X),
 	      transmissions(proplists:get_value(<<"id">>, X))}
-	     || X <- mochijson2:decode(Body)];
+	     || {struct, X} <- mochijson2:decode(Body)];
 	_Res ->
 	    []
     end.
