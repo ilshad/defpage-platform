@@ -251,6 +251,8 @@ save_edit(DocId, Version, TrId) ->
 %%------------------------------------------------------------------------------
 -spec(delete_document(Id::integer()) -> ok).
 
+delete_document([{_, null, _} | T]) ->
+    delete_document(T);
 delete_document([{Id, HostDocId, Settings} | T]) ->
     do_delete(Id, HostDocId, Settings),
     delete_document(T);
