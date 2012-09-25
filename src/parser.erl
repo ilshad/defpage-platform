@@ -1,4 +1,4 @@
--module(platform_parser).
+-module(parser).
 
 -export([]).
 -export([string/1, assert/1, compose/1]).
