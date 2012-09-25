@@ -6,7 +6,7 @@
 	 symbol/1,
 	 token/1,
 	 fail/1,
-	 multiple/2,
+	 then/2,
 	 sum/2,
 	 transform/2]).
 
@@ -44,10 +44,10 @@ fail(_) ->
 
 %% Parser combinators
 
-multiple(P1, P2) ->
+then(P1, P2) ->
     fun(Input) ->
-	    [{L2, {V1, V2}} || {L1, V1} <- P1(Input),
-			       {L2, V2} <- P2(L1)]
+	    [{B, {V1, V2}} || {A, V1} <- P1(Input),
+			      {B, V2} <- P2(A)]
     end.
 
 sum(P1, P2) ->
