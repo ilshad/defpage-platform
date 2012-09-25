@@ -1,14 +1,22 @@
 -module(parser).
 
--export([]).
--export([]).
+-export([succeed/1,
+	 lambda/1,
+	 satisfy/1,
+	 symbol/1,
+	 token/1,
+	 fail/1,
+	 then/2,
+	 compose_or/1,
+	 transform/2]).
 
-%% Basic parser generators
+%% Basic parsers
 
 succeed(V) ->
     fun(Input) -> [{Input, V}] end.
 
-lambda(_) -> succeed({}).
+lambda(_) ->
+    succeed({}).
 
 satisfy(P) ->
     fun(Input) -> satisfy(P, Input) end.
@@ -21,13 +29,12 @@ satisfy(P, [H|T]) ->
     end.
 
 symbol(V) ->
-    satisfy(fun(Ch) -> lists:equal(V, Ch) end).
+    satisfy(fun(Ch) -> string:equal(V, Ch) end).
 
-token(K) ->
-    N = length(K),
+token(V) ->
     fun(Input) ->
-	    case K == lists:nth(N, Input) of
-		true -> [{lists:nthtail(N, Input), K}];
+	    case lists:prefix(V, Input) of
+		true -> [{lists:nthtail(length(V), Input), V}];
 		_ -> []
 	    end
     end.
@@ -37,18 +44,13 @@ fail(_) ->
 
 %% Parser combinators
 
-and_p(Parsers) ->
+then(P1, P2) ->
     fun(Input) ->
-	    {Rest, Result} = lists:foldl(fun(Fn, {I, Acc}) ->
-						 {Rest, X} = Fn(I),
-						 {Rest, Acc + X}
-					 end,
-					 {Input, []},
-					 Parsers),
-	    [{Rest, list_to_tuple(Result)}]
+	    [{L2, {V1, V2}} || {L1, V1} <- P1(Input),
+			       {L2, V2} <- P2(L1)]
     end.
 
-or_p(Parsers) ->
+compose_or(Parsers) ->
     fun(Input) ->
 	    lists:map(fun(Fn) -> Fn(Input) end, Parsers)
     end.
