@@ -8,7 +8,10 @@
 	 fail/1,
 	 then/2,
 	 sum/2,
-	 transform/2]).
+	 transform/2,
+	 spaces/1,
+	 just/1
+	]).
 
 %% Basic parsers
 
@@ -57,9 +60,17 @@ sum(P1, P2) ->
 
 %% Parser transformers
 
-transform(Fn, Parser) ->
+transform(Fn, P) ->
     fun(Input) ->
-	    [{Rest, Fn(X)} || {Rest, X} <- Parser(Input)]
+	    [{Rest, Fn(X)} || {Rest, X} <- P(Input)]
     end.
 
-%% Custom parsers
+spaces(P) ->
+    fun(Input) ->
+	    P(lists:dropwhile(fun(I) -> I == 32 end, Input))
+    end.
+
+just(P) ->
+    fun(Input) ->
+	    [{A, B} || {A, B} <- P(Input), A == []]
+    end.
