@@ -6,8 +6,8 @@
 	 symbol/1,
 	 token/1,
 	 fail/1,
-	 then/2,
-	 compose_or/1,
+	 multiple/2,
+	 sum/2,
 	 transform/2]).
 
 %% Basic parsers
@@ -44,15 +44,15 @@ fail(_) ->
 
 %% Parser combinators
 
-then(P1, P2) ->
+multiple(P1, P2) ->
     fun(Input) ->
 	    [{L2, {V1, V2}} || {L1, V1} <- P1(Input),
 			       {L2, V2} <- P2(L1)]
     end.
 
-compose_or(Parsers) ->
+sum(P1, P2) ->
     fun(Input) ->
-	    lists:map(fun(Fn) -> Fn(Input) end, Parsers)
+	    P1(Input) ++ P2(Input)
     end.
 
 %% Parser transformers
