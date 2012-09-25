@@ -155,7 +155,6 @@ process_transmission(_) ->
 do_create(DocId, Version, #rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
     {Title, Abstract, Body} = platform_content:content(DocId),
     Fields = {struct, [{<<"title">>, Title},
-		       {<<"abstract">>, Abstract},
 		       {<<"body">>, Body}]},
     Request = {Url,
 	       [auth_header(Auth)],
@@ -206,10 +205,8 @@ save_create(DocId, Version, TrId, HostDocId) ->
 
 do_edit(DocId, Version, HostDocId,
 	#rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
-    {Title, Abstract, Body} = platform_content:content(DocId),
-    Fields = {struct, [{<<"title">>, Title},
-		       {<<"abstract">>, Abstract},
-		       {<<"body">>, Body}]},
+    {Title, Body} = platform_content:content(DocId),
+    Fields = {struct, [{<<"title">>, Title}, {<<"body">>, Body}]},
     Request = {Url ++ "/" ++ binary_to_list(HostDocId),
 	       [auth_header(Auth)],
 	       "application/json",
