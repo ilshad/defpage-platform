@@ -1,38 +1,63 @@
 -module(parser).
 
 -export([]).
--export([string/1, assert/1, compose/1]).
+-export([]).
 
-string(S) ->
+%% Basic parser generators
+
+succeed(V) ->
+    fun(Input) -> [{Input, V}] end.
+
+lambda(_) -> succeed({}).
+
+satisfy(P) ->
+    fun(Input) -> satisfy(P, Input) end.
+
+satisfy(_, []) -> [];
+satisfy(P, [H|T]) ->
+    case P(H) of
+	true -> [{T, H}];
+	_ -> []
+    end.
+
+symbol(V) ->
+    satisfy(fun(Ch) -> lists:equal(V, Ch) end).
+
+token(K) ->
+    N = length(K),
     fun(Input) ->
-	    case lists:prefix(S, Input) of
-		true ->
-		    {S, Input--S};
-		_ ->
-		    fail
+	    case K == lists:nth(N, Input) of
+		true -> [{lists:nthtail(N, Input), K}];
+		_ -> []
 	    end
     end.
 
-assert(P) ->
+fail(_) ->
+    fun(_) -> [] end.
+
+%% Parser combinators
+
+and_p(Parsers) ->
     fun(Input) ->
-	    case P(Input) of
-		fail ->
-		     fail;
-		_ ->
-		    {[], Input}
-	    end
+	    {Rest, Result} = lists:foldl(fun(Fn, {I, Acc}) ->
+						 {Rest, X} = Fn(I),
+						 {Rest, Acc + X}
+					 end,
+					 {Input, []},
+					 Parsers),
+	    [{Rest, list_to_tuple(Result)}]
     end.
 
-compose(Parsers) ->
+or_p(Parsers) ->
     fun(Input) ->
-	    lists:foldl(fun(Fn, {Acc, I}) ->
-				case Fn(I) of
-				    {R, Rest} ->
-					{Acc ++ R, Rest};
-				    fail ->
-					{[], I}
-				end
-			end,
-			{[], Input},
-			Parsers)
+	    lists:map(fun(Fn) -> Fn(Input) end, Parsers)
     end.
+
+%% Parser transformers
+
+transform(Fn, Parser) ->
+    fun(Input) ->
+	    [{Rest, Fn(X)} || {Rest, X} <- Parser(Input)]
+    end.
+
+%% Custom parsers
