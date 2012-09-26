@@ -85,7 +85,7 @@ some(P) ->
 	    X
     end.
 
-%% Transformed parser combinators
+%% Parser combinators from transformation
 
 then_fst(P1, P2) ->
     transform(fun({X, _}) -> X end, then(P1, P2)).
