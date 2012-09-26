@@ -13,7 +13,8 @@
 	 just/1,
 	 some/1,
 	 then_fst/2,
-	 then_snd/2
+	 then_snd/2,
+	 zero_or_many/1
 	]).
 
 %% Basic parsers
@@ -48,7 +49,7 @@ token(V) ->
 fail(_) ->
     fun(_) -> [] end.
 
-%% Parser combinators
+%% Combinators
 
 then(P1, P2) ->
     fun(Input) ->
@@ -61,9 +62,9 @@ sum(P1, P2) ->
 	    P1(Input) ++ P2(Input)
     end.
 
-%% Parser transformers
+%% Transformers
 
-transform(Fn, P) ->
+transform(P, Fn) ->
     fun(Input) ->
 	    [{Rest, Fn(X)} || {Rest, X} <- P(Input)]
     end.
@@ -85,10 +86,17 @@ some(P) ->
 	    X
     end.
 
-%% Parser combinators from transformation
+%% Compose and return left and right result
 
 then_fst(P1, P2) ->
-    transform(fun({X, _}) -> X end, then(P1, P2)).
+    transform(then(P1, P2), fun({X, _}) -> X end).
 
 then_snd(P1, P2) ->
-    transform(fun({_, X}) -> X end, then(P1, P2)).
+    transform(then(P1, P2), fun({_, X}) -> X end).
+
+%% Repetion and option
+
+zero_or_many(P) ->
+    then(P, zero_or_many(P)).
+
+	    
