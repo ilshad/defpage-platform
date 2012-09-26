@@ -10,7 +10,10 @@
 	 sum/2,
 	 transform/2,
 	 spaces/1,
-	 just/1
+	 just/1,
+	 some/1,
+	 then_fst/2,
+	 then_snd/2
 	]).
 
 %% Basic parsers
@@ -74,3 +77,18 @@ just(P) ->
     fun(Input) ->
 	    [{A, B} || {A, B} <- P(Input), A == []]
     end.
+
+some(P) ->
+    fun(Input) ->
+	    Fn = just(P),
+	    [{_, X} | _] = Fn(Input),
+	    X
+    end.
+
+%% Transformed parser combinators
+
+then_fst(P1, P2) ->
+    transform(fun({X, _}) -> X end, then(P1, P2)).
+
+then_snd(P1, P2) ->
+    transform(fun({_, X}) -> X end, then(P1, P2)).
