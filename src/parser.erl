@@ -106,9 +106,13 @@ zero_or_many(P) ->
     end.
 
 zero_or_many(P) ->
-    fun(Input) -> zero_or_many(P, [], Input) end.
+    fun(Input) -> zero_or_many(P, Input, []) end.
 
-zero_or_many(P, Acc, Input) ->
-    case P(Input) of
-	[] -> {Input, Acc};
-	Res -> zero_or_many(P, 
+zero_or_many(P, Input, Acc) ->
+    zero_or_many(P(Input), Acc).
+
+zero_or_many([{Rest, V} | T], Acc) ->
+    zero_or_many(P, Rest, Acc ++ [H]),
+    zero_or_many({T, Acc ++ [H]});
+zero_or_many([], Acc) ->
+    Acc.
