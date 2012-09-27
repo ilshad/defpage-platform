@@ -14,7 +14,8 @@
 	 some/1,
 	 then_fst/2,
 	 then_snd/2,
-	 zero_or_many/1
+	 zero_or_many/1,
+	 foo/2
 	]).
 
 %% Basic parsers
@@ -97,6 +98,17 @@ then_snd(P1, P2) ->
 %% Repetion and option
 
 zero_or_many(P) ->
-    then(P, zero_or_many(P)).
+    fun(Input) ->
+	    [{D, {V1, V2, V3, V4}} || {A, V1} <- P(Input),
+				      {B, V2} <- P(A),
+				      {C, V3} <- P(B),
+				      {D, V4} <- P(C)]
+    end.
 
-	    
+zero_or_many(P) ->
+    fun(Input) -> zero_or_many(P, [], Input) end.
+
+zero_or_many(P, Acc, Input) ->
+    case P(Input) of
+	[] -> {Input, Acc};
+	Res -> zero_or_many(P, 
