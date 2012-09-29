@@ -5,6 +5,7 @@
 	 satisfy/1,
 	 symbol/1,
 	 token/1,
+	 token_x/1,
 	 fail/1,
 	 then/2,
 	 sum/2,
@@ -14,7 +15,6 @@
 	 some/1,
 	 then_fst/2,
 	 then_snd/2,
-	 zero_or_4/1,
 	 zero_or_many/1
 	]).
 
@@ -43,6 +43,15 @@ token(V) ->
     fun(Input) ->
 	    case lists:prefix(V, Input) of
 		true -> [{lists:nthtail(length(V), Input), V}];
+		_ -> []
+	    end
+    end.
+
+token_x(V) ->
+    fun(Input) ->
+	    case lists:prefix(V, Input) of
+		true -> [{lists:nthtail(length(V), Input), V},
+			 {lists:nthtail(length(V), Input), 42}];
 		_ -> []
 	    end
     end.
@@ -97,22 +106,10 @@ then_snd(P1, P2) ->
 
 %% Repetion and option
 
-zero_or_4(P) ->
+zero_or_many(P) ->
     fun(Input) ->
-	    [{D, {V1, V2, V3, V4}} || {A, V1} <- P(Input),
-				      {B, V2} <- P(A),
-				      {C, V3} <- P(B),
-				      {D, V4} <- P(C)]
+	    zero_or_many(P, Input)
     end.
 
-zero_or_many(P) ->
-    fun(Input) -> zero_or_many(P, Input, []) end.
-
-zero_or_many(P, Input, Acc) ->
-    zero_or_many({P, P(Input)}, Acc).
-
-zero_or_many({P, [{Rest, V} | T]}, Acc) ->
-    zero_or_many(P, Rest, Acc ++ [V]),
-    zero_or_many({P, T}, Acc ++ [V]);
-zero_or_many({_, []}, Acc) ->
-    Acc.
+zero_or_many(P, Input) ->
+    
