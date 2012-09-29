@@ -29,12 +29,11 @@ lambda(_) ->
 satisfy(P) ->
     fun(Input) -> satisfy(P, Input) end.
 
-satisfy(_, []) -> [];
-satisfy(P, [H|T]) ->
-    case P(H) of
-	true -> [{T, H}];
-	_ -> []
-    end.
+satisfy(_, []) ->           [];
+satisfy(P, [H|T]) ->        satisfy(P(H), T, H).
+
+satisfy(true, Rest, V) ->   [{Rest, V}];
+satisfy(_, _, _) ->         [].
 
 symbol(V) ->
     satisfy(fun(Ch) -> string:equal(V, Ch) end).
@@ -108,8 +107,13 @@ then_snd(P1, P2) ->
 
 zero_or_many(P) ->
     fun(Input) ->
-	    zero_or_many(P, Input)
+	    zero_or_many(P, Input, [])
     end.
 
-zero_or_many(P, Input) ->
-    
+zero_or_many(P, Input, Acc) ->
+    case P(Input) of
+	[] ->
+	    [{Input, list_to_tuple(Acc)}];
+	[{Rest, V} | T] ->
+	    zero_or_many(P, Rest, Acc ++ [V])
+    end.
