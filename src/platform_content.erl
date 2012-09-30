@@ -37,4 +37,3 @@ document(DocId) ->
 
 	_ -> error
     end.
-    

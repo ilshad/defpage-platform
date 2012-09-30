@@ -153,7 +153,7 @@ process_transmission(_) ->
 		TrSettings::transmission_settings()) -> ok).
 
 do_create(DocId, Version, #rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
-    {Title, Abstract, Body} = platform_content:content(DocId),
+    {Title, Body} = platform_content:content(DocId),
     Fields = {struct, [{<<"title">>, Title},
 		       {<<"body">>, Body}]},
     Request = {Url,

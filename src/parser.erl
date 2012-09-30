@@ -11,8 +11,6 @@
 	 transform/2,
 	 spaces/1,
 	 just/1,
-	 then_fst/1,
-	 then_snd/1,
 	 zero_or_many/1
 	]).
 
@@ -107,3 +105,4 @@ zero_or_many(P, Input, Acc) ->
 	    {Input, Acc}
     end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
