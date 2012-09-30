@@ -22,7 +22,7 @@ succeed(V) ->
     fun(Input) -> {Input, V} end.
 
 lambda(_) ->
-    succeed({}).
+    succeed([]).
 
 satisfy(P) ->
     fun(Input) -> satisfy(P, Input) end.
@@ -41,14 +41,6 @@ token(V) ->
 	    case lists:prefix(V, Input) of
 		true -> {Input--V, V};
 		_ -> fail
-	    end
-    end.
-
-assert(P) ->
-    fun(Input) ->
-	    case P(Input) of
-		fail -> fail;
-		_ -> {[], Input}
 	    end
     end.
 
@@ -92,13 +84,13 @@ just(P) ->
 	    end
     end.
 
-%% Compose and return left and right result
-
-then_fst(Parsers) ->
-    transform(comb(Parsers), fun([X | _]) -> X end).
-
-then_snd(Parsers) ->
-    transform(comb(Parsers), fun([_, X | _]) -> X end).
+assert(P) ->
+    fun(Input) ->
+	    case P(Input) of
+		fail -> fail;
+		_ -> {Input, []}
+	    end
+    end.
 
 %% Repetion and option
 
