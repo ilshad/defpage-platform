@@ -5,23 +5,21 @@
 	 satisfy/1,
 	 symbol/1,
 	 token/1,
-	 token_x/1,
+	 assert/1,
 	 fail/1,
-	 then/2,
-	 sum/2,
+	 comb/1,
 	 transform/2,
 	 spaces/1,
 	 just/1,
-	 some/1,
-	 then_fst/2,
-	 then_snd/2,
+	 then_fst/1,
+	 then_snd/1,
 	 zero_or_many/1
 	]).
 
 %% Basic parsers
 
 succeed(V) ->
-    fun(Input) -> [{Input, V}] end.
+    fun(Input) -> {Input, V} end.
 
 lambda(_) ->
     succeed({}).
@@ -29,11 +27,11 @@ lambda(_) ->
 satisfy(P) ->
     fun(Input) -> satisfy(P, Input) end.
 
-satisfy(_, []) ->           [];
+satisfy(_, []) ->           fail;
 satisfy(P, [H|T]) ->        satisfy(P(H), T, H).
 
-satisfy(true, Rest, V) ->   [{Rest, V}];
-satisfy(_, _, _) ->         [].
+satisfy(true, Rest, V) ->   {Rest, V};
+satisfy(_, _, _) ->         fail.
 
 symbol(V) ->
     satisfy(fun(Ch) -> string:equal(V, Ch) end).
@@ -41,41 +39,44 @@ symbol(V) ->
 token(V) ->
     fun(Input) ->
 	    case lists:prefix(V, Input) of
-		true -> [{lists:nthtail(length(V), Input), V}];
-		_ -> []
+		true -> {Input--V, V};
+		_ -> fail
 	    end
     end.
 
-token_x(V) ->
+assert(P) ->
     fun(Input) ->
-	    case lists:prefix(V, Input) of
-		true -> [{lists:nthtail(length(V), Input), V},
-			 {lists:nthtail(length(V), Input), 42}];
-		_ -> []
+	    case P(Input) of
+		fail -> fail;
+		_ -> {[], Input}
 	    end
     end.
 
 fail(_) ->
-    fun(_) -> [] end.
+    fun(_) -> fail end.
 
 %% Combinators
 
-then(P1, P2) ->
+comb(Parsers) ->
     fun(Input) ->
-	    [{B, {V1, V2}} || {A, V1} <- P1(Input),
-			      {B, V2} <- P2(A)]
-    end.
-
-sum(P1, P2) ->
-    fun(Input) ->
-	    P1(Input) ++ P2(Input)
+	    lists:foldl(fun(P, {I, Acc}) ->
+				case P(I) of
+				    {Rest, V} ->
+					{Rest, Acc ++ V};
+				    fail ->
+					{I, []}
+				end
+			end,
+			{Input, []},
+			Parsers)
     end.
 
 %% Transformers
 
 transform(P, Fn) ->
     fun(Input) ->
-	    [{Rest, Fn(X)} || {Rest, X} <- P(Input)]
+	    {Rest, V} = P(Input),
+	    {Rest, Fn(V)}
     end.
 
 spaces(P) ->
@@ -85,23 +86,19 @@ spaces(P) ->
 
 just(P) ->
     fun(Input) ->
-	    [{A, B} || {A, B} <- P(Input), A == []]
-    end.
-
-some(P) ->
-    fun(Input) ->
-	    Fn = just(P),
-	    [{_, X} | _] = Fn(Input),
-	    X
+	    case P(Input) of
+		{[], V} -> {[], V};
+		_ -> fail
+	    end
     end.
 
 %% Compose and return left and right result
 
-then_fst(P1, P2) ->
-    transform(then(P1, P2), fun({X, _}) -> X end).
+then_fst(Parsers) ->
+    transform(comb(Parsers), fun([X | _]) -> X end).
 
-then_snd(P1, P2) ->
-    transform(then(P1, P2), fun({_, X}) -> X end).
+then_snd(Parsers) ->
+    transform(comb(Parsers), fun([_, X | _]) -> X end).
 
 %% Repetion and option
 
@@ -112,8 +109,9 @@ zero_or_many(P) ->
 
 zero_or_many(P, Input, Acc) ->
     case P(Input) of
-	[] ->
-	    [{Input, list_to_tuple(Acc)}];
-	[{Rest, V} | T] ->
-	    zero_or_many(P, Rest, Acc ++ [V])
+	{Rest, V} ->
+	    zero_or_many(P, Rest, Acc ++ V);
+	fail ->
+	    {Input, Acc}
     end.
+
