@@ -15,9 +15,7 @@ content(gd, CollectionId, UID) ->
     case httpc:request(Url) of
 	{ok, {{_, 200, _}, _, Response}} ->
 	    io:format("Response: ~ts.\n", [unicode:characters_to_binary(Response)]),
-	    {<<"title...">>,
-	     <<"abstract...">>,
-	     <<"body...">>};
+	    {<<"title...">>, <<"body...">>};
 	{ok, {{_, 404, _}, _, _}} ->
 	    error_get_source;
 	_ ->

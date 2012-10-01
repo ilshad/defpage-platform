@@ -1,5 +1,9 @@
 -module(parser).
 
+%% API
+-export([gd_attrs/0]).
+
+%% testing
 -export([succeed/1,
 	 lambda/1,
 	 satisfy/1,
@@ -9,9 +13,12 @@
 	 fail/1,
 	 comb/1,
 	 transform/2,
+	 transform2/2,
 	 spaces/1,
 	 just/1,
-	 zero_or_many/1
+	 zero_or_many/1,
+	 single_or_many/1,
+	 option/1
 	]).
 
 %% Basic parsers
@@ -69,6 +76,12 @@ transform(P, Fn) ->
 	    {Rest, Fn(V)}
     end.
 
+transform2(P, Fn) ->
+    fun(Input) ->
+	    {Rest, V} = P(Input),
+	    Fn({Rest, V})
+    end.
+
 spaces(P) ->
     fun(Input) ->
 	    P(lists:dropwhile(fun(I) -> I == 32 end, Input))
@@ -105,4 +118,29 @@ zero_or_many(P, Input, Acc) ->
 	    {Input, Acc}
     end.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+single_or_many(P) ->
+    transform2(zero_or_many(P),
+	       fun({Rest, V}) ->
+		       case V of
+			   [] ->
+			       fail;
+			   _ ->
+			       {Rest, V}
+		       end
+	       end).
+
+option(P) ->
+    fun(Input) ->
+	    case P(Input) of
+		{Rest, V} ->
+		    {Rest, V};
+		fail ->
+		    {Input, []}
+	    end
+    end.
+
+%%%%%%%%%% Custom parsers %%%%%%%%%%
+
+gd_attrs() ->
+    zero_or_many(gd_attr).
+    
