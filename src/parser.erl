@@ -139,8 +139,14 @@ option(P) ->
 	    end
     end.
 
+pack(L, P, R) ->
+    fun(Input) ->
+	    
+
 %%%%%%%%%% Custom parsers %%%%%%%%%%
 
-gd_attrs() ->
-    zero_or_many(gd_attr).
-    
+%gd_attrs() -> ok.
+%    zero_or_many(
+%      comb([
+%	    symbol($*),
+%	    single_or_many(transform(symbol($*),
