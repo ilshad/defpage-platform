@@ -8,20 +8,6 @@ content(DocId) ->
     {SourceType, CollectionId, UID} = document(DocId),
     content(SourceType, CollectionId, UID).
 
-content(gd, CollectionId, UID) ->
-    Url = ?GD_URL
-	++ "/api/collection/" ++ integer_to_list(CollectionId)
-	++ "/documents/" ++ UID,
-    case httpc:request(Url) of
-	{ok, {{_, 200, _}, _, Response}} ->
-	    io:format("Response: ~ts.\n", [unicode:characters_to_binary(Response)]),
-	    {<<"title...">>, <<"body...">>};
-	{ok, {{_, 404, _}, _, _}} ->
-	    error_get_source;
-	_ ->
-	    error_get_source
-    end.
-
 document(DocId) ->
     Url = ?META_URL ++ "/documents/" ++ integer_to_list(DocId),
     case httpc:request(get, {Url, [?META_AUTH]}, [], []) of
@@ -35,3 +21,18 @@ document(DocId) ->
 
 	_ -> error
     end.
+
+content(gd, CollectionId, UID) ->
+    Url = ?GD_URL
+	++ "/api/collection/" ++ integer_to_list(CollectionId)
+	++ "/documents/" ++ UID,
+    case httpc:request(Url) of
+	{ok, {{_, 200, _}, _, Response}} ->
+	    io:format("Response: ~ts.\n", [unicode:characters_to_binary(Response)]),
+	    {<<"title...">>, <<"body...">>};
+	{ok, {{_, 404, _}, _, _}} ->
+	    error_get_source;
+	_ ->
+	    error_get_source
+    end.
+    
