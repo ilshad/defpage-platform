@@ -30,7 +30,7 @@ content(gd, CollectionId, UID) ->
 	++ "/documents/" ++ UID,
     case httpc:request(Url) of
 	{ok, {{_, 200, _}, _, Response}} ->
-	    Response;
+	    parse(Response);
 	{ok, {{_, 404, _}, _, _}} ->
 	    error_get_source;
 	_ ->
