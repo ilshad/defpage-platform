@@ -2,6 +2,8 @@
 
 -export([content/1]).
 
+-export([parse/1]).
+
 -include("platform.hrl").
 
 content(DocId) ->
@@ -37,18 +39,33 @@ content(gd, CollectionId, UID) ->
 	    error_get_source
     end.
 
-rules(gd) ->
-    [{key, parser:pack($*, $*)}].
+pkey([H|T]) ->
+    case (H == 42) and (lists:last(T) == 42) of
+	true ->
+	    {ok, string:strip(T, right, 42)};
+	_ ->
+	    fail
+    end.
 
-parse(gd, Input) ->
-    parse(gd, rules(gd), string:tokens(Input, "\n"), []).
+parse(S) ->
+    parse(string:tokens(S, "\n"), []).
 
-parse(gd, Rules, [H|T], Acc) ->
-    PKey = proplists:get_value(key, Rules),
-    case PKey(H) of
-	{[], Key} ->
-	    parse(gd, Rules, T, Acc ++ [{key, Key}]);
-	{[], []} ->
-	    case lists:last(Acc) of
-		{key, Key} ->
-		    
+parse([H|T], Acc) ->
+    case pkey(H) of
+	{ok, Key} ->
+	    parse(T, Acc, {Key, []});
+	fail ->
+	    fail
+    end.
+
+parse([H|T], Acc, {K,V}) ->
+    io:format("~ts--------\n", [unicode:characters_to_binary(H)]),
+    case pkey(H) of
+	{ok, Key} ->
+	    io:format("########### ~ts\n", [Key]),
+	    parse(T, Acc ++ [{K,V}], {Key, []});
+	fail ->
+	    parse(T, Acc, {K, V ++ H})
+    end;
+parse([], Acc, {K,V}) ->
+    Acc ++ [{K,V}].
