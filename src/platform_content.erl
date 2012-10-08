@@ -30,7 +30,7 @@ content(gd, CollectionId, UID) ->
 	++ "/documents/" ++ UID,
     case httpc:request(Url) of
 	{ok, {{_, 200, _}, _, Response}} ->
-	    parse(Response);
+	    proplist_bin(parse(Response));
 	{ok, {{_, 404, _}, _, _}} ->
 	    error_get_source;
 	_ ->
@@ -65,3 +65,11 @@ parse([H|T], Acc, {K,V}) ->
     end;
 parse([], Acc, {K,V}) ->
     Acc ++ [{K,V}].
+
+proplist_bin(L) ->
+    proplist_bin(L, []).
+
+proplist_bin([{K,V} |T], Acc) ->
+    proplist_bin(T, Acc ++ [{iolist_to_binary(K), iolist_to_binary(V)}]);
+proplist_bin([], Acc) ->
+    Acc.

@@ -153,14 +153,11 @@ process_transmission(_) ->
 		TrSettings::transmission_settings()) -> ok).
 
 do_create(DocId, Version, #rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
-    {Title, Body} = platform_content:content(DocId),
-    Fields = {struct, [{<<"title">>, Title},
-		       {<<"body">>, Body}]},
+    Content = platform_content:content(DocId),
     Request = {Url,
 	       [auth_header(Auth)],
 	       "application/json",
-	       iolist_to_binary(mochijson2:encode(Fields))},
-
+	       iolist_to_binary(mochijson2:encode({struct, Content}))},
     case httpc:request(post, Request, [], []) of
 	{ok, {{_, 201, _}, _, ResponseBody}} ->
 	    io:format(":: HTTP POST :: request to the host -> 201 response."
@@ -205,12 +202,11 @@ save_create(DocId, Version, TrId, HostDocId) ->
 
 do_edit(DocId, Version, HostDocId,
 	#rest_transmission_settings{id=TrId, url=Url, auth=Auth}) ->
-    {Title, Body} = platform_content:content(DocId),
-    Fields = {struct, [{<<"title">>, Title}, {<<"body">>, Body}]},
+    Content = platform_content:content(DocId),
     Request = {Url ++ "/" ++ binary_to_list(HostDocId),
 	       [auth_header(Auth)],
 	       "application/json",
-	       iolist_to_binary(mochijson2:encode(Fields))},
+	       iolist_to_binary(mochijson2:encode({struct, Content}))},
     case httpc:request(put, Request, [], []) of
 	{ok, {{_, 204, _}, _, _}} ->
 	    io:format(":: HTTP PUT :: request to the host -> 204 response."
