@@ -31,8 +31,6 @@ content(gd, CollectionId, UID) ->
     case httpc:request(Url) of
 	{ok, {{_, 200, _}, _, Response}} ->
 	    Response;
-	%io:format("Response: ~ts.\n", [unicode:characters_to_binary(Response)]),
-	%{<<"title...">>, <<"body...">>};
 	{ok, {{_, 404, _}, _, _}} ->
 	    error_get_source;
 	_ ->
@@ -59,10 +57,8 @@ parse([H|T], Acc) ->
     end.
 
 parse([H|T], Acc, {K,V}) ->
-    io:format("~ts--------\n", [unicode:characters_to_binary(H)]),
     case pkey(H) of
 	{ok, Key} ->
-	    io:format("########### ~ts\n", [Key]),
 	    parse(T, Acc ++ [{K,V}], {Key, []});
 	fail ->
 	    parse(T, Acc, {K, V ++ H})
