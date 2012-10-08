@@ -28,11 +28,27 @@ content(gd, CollectionId, UID) ->
 	++ "/documents/" ++ UID,
     case httpc:request(Url) of
 	{ok, {{_, 200, _}, _, Response}} ->
-	    io:format("Response: ~ts.\n", [unicode:characters_to_binary(Response)]),
-	    {<<"title...">>, <<"body...">>};
+	    Response;
+	%io:format("Response: ~ts.\n", [unicode:characters_to_binary(Response)]),
+	%{<<"title...">>, <<"body...">>};
 	{ok, {{_, 404, _}, _, _}} ->
 	    error_get_source;
 	_ ->
 	    error_get_source
     end.
-    
+
+rules(gd) ->
+    [{key, parser:pack($*, $*)}].
+
+parse(gd, Input) ->
+    parse(gd, rules(gd), string:tokens(Input, "\n"), []).
+
+parse(gd, Rules, [H|T], Acc) ->
+    PKey = proplists:get_value(key, Rules),
+    case PKey(H) of
+	{[], Key} ->
+	    parse(gd, Rules, T, Acc ++ [{key, Key}]);
+	{[], []} ->
+	    case lists:last(Acc) of
+		{key, Key} ->
+		    
