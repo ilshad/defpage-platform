@@ -1,10 +1,7 @@
-%% @author author <author@example.com>
-%% @copyright YYYY author.
-
 %% @doc Callbacks for the platform application.
 
 -module(platform_app).
--author('author <author@example.com>').
+-author('Ilshad Khabibullin <astoon.net@gmail.com>').
 
 -behaviour(application).
 -export([start/2,stop/1]).

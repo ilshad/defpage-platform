@@ -1,3 +1,5 @@
+%%% @copyright 2012 Ilshad Khabibullin <astoon.net@gmail.com>
+
 %%% Synchronize documents in metadata server with sources.
 
 -module(platform_source).

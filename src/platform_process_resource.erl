@@ -1,3 +1,5 @@
+%%% @copyright 2012 Ilshad Khabibullin <astoon.net@gmail.com>
+
 %%% Run actions. This is the Webmachine resource.
 
 -module(platform_process_resource).

@@ -1,10 +1,7 @@
-%% @author author <author@example.com>
-%% @copyright YYYY author.
-
 %% @doc platform startup code
 
 -module(platform).
--author('author <author@example.com>').
+-author('Ilshad Khabibullin <astoon.net@gmail.com>').
 -export([start/0, start_link/0, stop/0]).
 
 ensure_started(App) ->

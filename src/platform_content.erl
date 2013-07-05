@@ -1,3 +1,5 @@
+%%% @copyright 2012 Ilshad Khabibullin <astoon.net@gmail.com>
+
 -module(platform_content).
 
 -export([content/1]).

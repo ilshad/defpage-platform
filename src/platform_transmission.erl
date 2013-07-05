@@ -1,3 +1,5 @@
+%%% @copyright 2012 Ilshad Khabibullin <astoon.net@gmail.com>
+
 %%% Process transmission.
 
 -module(platform_transmission).
